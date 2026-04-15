@@ -19,6 +19,20 @@ import { useAuth } from "../../auth/AuthProvider";
 
 const GREEN = "#3AB000";
 
+// Helper to sanitize image URLs for production
+const cleanImageUrl = (url) => {
+  if (!url) return "";
+  // Direct replacement as requested by user
+  if (url.includes("localhost:3005/api")) {
+    return url.replace("http://localhost:3005/api", "https://api.jssabhiyan.com/api");
+  }
+  // If it's already a relative path, prepend the base URL
+  if (url.startsWith("/api/")) {
+    return `https://api.jssabhiyan.com/api${url}`;
+  }
+  return url;
+};
+
 const ProfileField = ({ icon: Icon, label, value, color = "text-gray-600" }) => (
   <div className="flex items-start gap-3 p-3 bg-gray-50 border border-gray-200">
     <div className={`p-2 ${color.replace('text', 'bg')}/10`}>
@@ -83,7 +97,7 @@ const EmployeeProfile = () => {
           <div className="bg-white p-6 sm:p-8 border border-green-600 flex flex-col md:flex-row items-center md:items-end gap-6 relative">
             <div className="w-32 h-32 sm:w-40 sm:h-40 bg-white p-1 border border-green-600 -mt-20 md:-mt-24 overflow-hidden group">
               <img
-                src={app?.photo || "https://ui-avatars.com/api/?name=User&background=3AB000&color=fff"}
+                src={cleanImageUrl(app?.photo) || "https://ui-avatars.com/api/?name=User&background=3AB000&color=fff"}
                 alt="Profile"
                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
               />

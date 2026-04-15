@@ -23,8 +23,10 @@ import {
   Save
 
 } from "lucide-react";
-import { createPaperAPI, applicationsAPI, feeStructureAPI, mouAPI, api } from "../../utils/api";
+import { createPaperAPI, feeStructureAPI, mouAPI, uploadAPI, locationAPI } from "../../utils/api";
 import { useAuth } from "../../auth/AuthProvider";
+import indianStates from "../../data/states.json";
+import indianDistricts from "../../data/district.json";
 
 const GREEN = "#0aca00";
 
@@ -113,7 +115,7 @@ const FormInput = ({ type = "text", value, readOnly, placeholder, onChange, clas
   />
 );
 
-const FormSelect = ({ value, readOnly, options, onChange, placeholder = "--Please Select--" }) => (
+const FormSelect = ({ value, readOnly, options, onChange, placeholder = "--Please Select--", getLabel }) => (
   <select
     value={value}
     disabled={readOnly}
@@ -121,14 +123,14 @@ const FormSelect = ({ value, readOnly, options, onChange, placeholder = "--Pleas
     className={`w-full px-3 py-2 bg-white border border-gray-300 rounded focus:ring-1 focus:ring-green-500 outline-none text-sm ${readOnly ? "bg-gray-50 text-gray-500 cursor-not-allowed" : ""}`}
   >
     <option value="">{placeholder}</option>
-    {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+    {options.map(opt => <option key={opt} value={opt}>{getLabel ? getLabel(opt) : opt}</option>)}
   </select>
 );
 
 const MOUForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [loading, setLoading] = useState(true);
   const [exam, setExam] = useState(null);
   const [application, setApplication] = useState(null);
@@ -138,18 +140,227 @@ const MOUForm = () => {
   const [showDocModal, setShowDocModal] = useState(false);
   const [docsVerified, setDocsVerified] = useState(false);
   const [tempEmpId, setTempEmpId] = useState("");
+  const [isOpenLang, setIsOpenLang] = useState(false);
 
   // Address Lists for Cascading Selects
-
-  // Address Lists for Cascading Selects
-  const [countries, setCountries] = useState([]);
-  const [states, setStates] = useState([]);
+  const [countries, setCountries] = useState(["India / भारत"]);
+  const [states, setStates] = useState(indianStates.states);
   const [districts, setDistricts] = useState([]);
   const [fetchingStates, setFetchingStates] = useState(false);
   const [fetchingDistricts, setFetchingDistricts] = useState(false);
-  
+
   const [blocks, setBlocks] = useState([]);
   const [panchayats, setPanchayats] = useState([]);
+
+  const getBilingualName = (name) => {
+    const mapping = {
+      // Countries
+      "India": "India / भारत",
+      
+      // States
+      "Bihar": "Bihar / बिहार",
+      "Uttar Pradesh": "Uttar Pradesh / उत्तर प्रदेश",
+      "Jharkhand": "Jharkhand / झारखंड",
+      "West Bengal": "West Bengal / पश्चिम बंगाल",
+      "Madhya Pradesh": "Madhya Pradesh / मध्य प्रदेश",
+      "Rajasthan": "Rajasthan / राजस्थान",
+      "Gujarat": "Gujarat / गुजरात",
+      "Maharashtra": "Maharashtra / महाराष्ट्र",
+      "Delhi": "Delhi / दिल्ली",
+      "Punjab": "Punjab / पंजाब",
+      "Haryana": "Haryana / हरियाणा",
+      "Uttarakhand": "Uttarakhand / उत्तराखंड",
+      "Chhattisgarh": "Chhattisgarh / छत्तीसगढ़",
+      "Odisha": "Odisha / ओडिशा",
+      "Assam": "Assam / असम",
+      "Himachal Pradesh": "Himachal Pradesh / हिमाचल प्रदेश",
+      "Jammu and Kashmir": "Jammu and Kashmir / जम्मू और कश्मीर",
+      "Karnataka": "Karnataka / कर्नाटक",
+      "Kerala": "Kerala / केरल",
+      "Tamil Nadu": "Tamil Nadu / तमिलनाडु",
+      "Andhra Pradesh": "Andhra Pradesh / आंध्र प्रदेश",
+      "Telangana": "Telangana / तेलंगाना",
+      "Goa": "Goa / गोवा",
+      
+      // Districts (Sample common ones)
+      "Patna": "Patna / पटना",
+      "Gaya": "Gaya / गया",
+      "Muzaffarpur": "Muzaffarpur / मुजफ्फरपुर",
+      "Lucknow": "Lucknow / लखनऊ",
+      "Ranchi": "Ranchi / रांची",
+      "Varanasi": "Varanasi / वाराणसी",
+      "Araria": "Araria / अररिया",
+      "Arwal": "Arwal / अरवल",
+      "Aurangabad": "Aurangabad / औरंगाबाद",
+      "Barka": "Barka / बांका",
+      "Begusarai": "Begusarai / बेगूसराय",
+      "Bhagalpur": "Bhagalpur / भागलपुर",
+      "Bhojpur": "Bhojpur / भोजपुर",
+      "Buxar": "Buxar / बक्सर",
+      "Darbhanga": "Darbhanga / दरभंगा",
+      "East Champaran": "East Champaran / पूर्वी चंपारण",
+      "Gopalganj": "Gopalganj / गोपालगंज",
+      "Jamui": "Jamui / जमुई",
+      "Jehanabad": "Jehanabad / जहानाबाद",
+      "Kaimur": "Kaimur / कैमूर",
+      "Katihar": "Katihar / कटिहार",
+      "Khagaria": "Khagaria / खगड़िया",
+      "Kishanganj": "Kishanganj / किशनगंज",
+      "Lakhisarai": "Lakhisarai / लखीसराय",
+      "Madhepura": "Madhepura / मधेपुरा",
+      "Madhubani": "Madhubani / मधुबनी",
+      "Munger": "Munger / मुंगेर",
+      "Nalanda": "Nalanda / नालंदा",
+      "Nawada": "Nawada / नवादा",
+      "Purnia": "Purnia / पूर्णिया",
+      "Rohtas": "Rohtas / रोहतास",
+      "Saharsa": "Saharsa / सहरसा",
+      "Samastipur": "Samastipur / समस्तीपुर",
+      "Saran": "Saran / सारण",
+      "Sheikhpura": "Sheikhpura / शेखपुरा",
+      "Sheohar": "Sheohar / शिवहर",
+      "Sitamarhi": "Sitamarhi / सीतामढ़ी",
+      "Siwan": "Siwan / सीवान",
+      "Supaul": "Supaul / सुपौल",
+      "Vaishali": "Vaishali / वैशाली",
+      "West Champaran": "West Champaran / पश्चिम चंपारण",
+      
+      // Additional States & Districts from JSON
+      "Andhra Pradesh": "Andhra Pradesh / आंध्र प्रदेश",
+      "Arunachal Pradesh": "Arunachal Pradesh / अरुणाचल प्रदेश",
+      "Chandigarh (UT)": "Chandigarh / चंडीगढ़",
+      "Dadra and Nagar Haveli (UT)": "Dadra and Nagar Haveli / दादरा और नगर हवेली",
+      "Daman and Diu (UT)": "Daman and Diu / दमन और दीव",
+      "Delhi (NCT)": "Delhi / दिल्ली (NCT)",
+      "Haryana": "Haryana / हरियाणा",
+      "Kerala": "Kerala / केरल",
+      "Lakshadweep (UT)": "Lakshadweep / लक्षद्वीप",
+      "Manipur": "Manipur / मणिपुर",
+      "Meghalaya": "Meghalaya / मेघालय",
+      "Mizoram": "Mizoram / मिजोरम",
+      "Nagaland": "Nagaland / नागालैंड",
+      "Puducherry (UT)": "Puducherry / पुडुचेरी",
+      "Sikkim": "Sikkim / सिक्किम",
+      "Tripura": "Tripura / त्रिपुरा",
+      "Anantapur": "Anantapur / अनंतपुर",
+      "Chittoor": "Chittoor / चित्तूर",
+      "Guntur": "Guntur / गुंटूर",
+      "Krishna": "Krishna / कृष्णा",
+      "Kurnool": "Kurnool / कुरनूल",
+      "Vizianagaram": "Vizianagaram / विजयनगरम",
+      "Kadapa": "Kadapa / कडप्पा",
+      "Ahmedabad": "Ahmedabad / अहमदाबाद",
+      "Gandhinagar": "Gandhinagar / गांधीनगर",
+      "Surat": "Surat / सूरत",
+      "Rajkot": "Rajkot / राजकोट",
+      "Bhopal": "Bhopal / भोपाल",
+      "Indore": "Indore / इंदौर",
+      "Gwalior": "Gwalior / ग्वालियर",
+      "Ujjain": "Ujjain / उज्जैन",
+      "Mumbai": "Mumbai / मुंबई",
+      "Pune": "Pune / पुणे",
+      "Nagpur": "Nagpur / नागपुर",
+      "Nashik": "Nashik / नासिक",
+      "Amritsar": "Amritsar / अमृतसर",
+      "Ludhiana": "Ludhiana / लुधियाना",
+      "Jaipur": "Jaipur / जयपुर",
+      "Jodhpur": "Jodhpur / जोधपुर",
+      "Udaipur": "Udaipur / उदयपुर",
+      "Chennai": "Chennai / चेन्नई",
+      "Hyderabad": "Hyderabad / हैदराबाद",
+      "Agra": "Agra / आगरा",
+      "Aligarh": "Aligarh / अलीगढ़",
+      "Allahabad": "Allahabad / इलाहाबाद",
+      "Bareilly": "Bareilly / बरेली",
+      "Ghaziabad": "Ghaziabad / गाजियाबाद",
+      "Gorakhpur": "Gorakhpur / गोरखपुर",
+      "Kanpur": "Kanpur / कानपुर",
+      "Mathura": "Mathura / मथुरा",
+      "Meerut": "Meerut / मेरठ",
+      "Kolkata": "Kolkata / कोलकाता",
+      "Ambala": "Ambala / अंबाला",
+      "Bhiwani": "Bhiwani / भिवानी",
+      "Faridabad": "Faridabad / फरीदाबाद",
+      "Gurgaon": "Gurgaon / गुड़गांव",
+      "Hisar": "Hisar / हिसार",
+      "Karnal": "Karnal / करनाल",
+      "Panipat": "Panipat / पानीपत",
+      "Rohtak": "Rohtak / रोहतक",
+      "Shimla": "Shimla / शिमला",
+      "Mandi": "Mandi / मंडी",
+      "Solan": "Solan / सोलन",
+      "Jammu": "Jammu / जम्मू",
+      "Srinagar": "Srinagar / श्रीनगर",
+      "Bokaro": "Bokaro / बोकारो",
+      "Dhanbad": "Dhanbad / धनबाद",
+      "Dumka": "Dumka / दुमका",
+      "Hazaribag": "Hazaribag / हजारीबाग",
+      "Jamshedpur": "Jamshedpur / जमशेदपुर",
+      "Bangalore": "Bangalore / बैंगलोर",
+      "Mysore": "Mysore / मैसूर",
+      "Thiruvananthapuram": "Thiruvananthapuram / तिरुवनंतपुरम",
+      "Kochi": "Kochi / कोच्चि",
+      "Gwalior": "Gwalior / ग्वालियर",
+      "Jabalpur": "Jabalpur / जबलपुर",
+      "Sagar": "Sagar / सागर",
+      "Satna": "Satna / सतना",
+      "Amravati": "Amravati / अमरावती",
+      "Aurangabad": "Aurangabad / औरंगाबाद",
+      "Kolhapur": "Kolhapur / कोल्हापुर",
+      "Solapur": "Solapur / सोलापुर",
+      "Imphal": "Imphal / इम्फाल",
+      "Shillong": "Shillong / शिलांग",
+      "Aizawl": "Aizawl / आइजोल",
+      "Kohima": "Kohima / कोहिमा",
+      "Bhubaneswar": "Bhubaneswar / भुवनेश्वर",
+      "Puri": "Puri / पुरी",
+      "Cuttack": "Cuttack / कटक",
+      "Amritsar": "Amritsar / अमृतसर",
+      "Jalandhar": "Jalandhar / जालंधर",
+      "Ludhiana": "Ludhiana / लुधियाना",
+      "Patiala": "Patiala / पटियाला",
+      "Bikaner": "Bikaner / बीकानेर",
+      "Kota": "Kota / कोटा",
+      "Ajmer": "Ajmer / अजमेर",
+      "Alwar": "Alwar / अलवर",
+      "Bharatpur": "Bharatpur / भरतपुर",
+      "Madurai": "Madurai / मदुरै",
+      "Coimbatore": "Coimbatore / कोयंबटूर",
+      "Warangal": "Warangal / वारंगल",
+      "Agartala": "Agartala / अगरतला",
+      "Dehradun": "Dehradun / देहरादून",
+      "Haridwar": "Haridwar / हरिद्वार",
+      "Nainital": "Nainital / नैनीताल",
+      "Bareilly": "Bareilly / बरेली",
+      "Faizabad": "Faizabad / फैजाबाद",
+      "Jhansi": "Jhansi / झांसी",
+      "Moradabad": "Moradabad / मुरादाबाद",
+      "Saharanpur": "Saharanpur / सहारनपुर",
+      "Asansol": "Asansol / आसनसोल",
+      "Durgapur": "Durgapur / दुर्गापुर",
+      "Siliguri": "Siliguri / सिलीगुड़ी",
+      "Arrah": "Arrah / आरा",
+      "Arwal": "Arwal / अरवल",
+      "Banka": "Banka / बांका",
+      "Barauni": "Barauni / बरौनी",
+      "Barh": "Barh / बाढ़",
+      "Bhabua": "Bhabua / भभुआ",
+      "Bihar Sharif": "Bihar Sharif / बिहार शरीफ",
+      "Chhapra": "Chhapra / छपरा",
+      "Dumraon": "Dumraon / डुमरांव",
+      "Forbesganj": "Forbesganj / फारबिसगंज",
+      "Hajipur": "Hajipur / हाजीपुर",
+      "Jamalpur": "Jamalpur / जमालपुर",
+      "Kishanganj": "Kishanganj / किशनगंज",
+      "Makhdumpur": "Makhdumpur / मखदुमपुर",
+      "Motihari": "Motihari / मोतिहारी",
+      "Narkatiaganj": "Narkatiaganj / नरकटियागंज",
+      "Rajgir": "Rajgir / राजगीर",
+      "Sasaram": "Sasaram / सासाराम",
+      "Sherghati": "Sherghati / शेरघाटी"
+    };
+    return mapping[name] || name;
+  };
 
 
   // Scroll to top on mount
@@ -182,7 +393,7 @@ const MOUForm = () => {
     pincode: "",
     motherName: "",
     panNumber: "",
-    nationality: "Indian",
+    nationality: "indian",
 
     // Education & Others
     handicapDisability: "No",
@@ -229,7 +440,7 @@ const MOUForm = () => {
 
     setUploadingDoc(type);
     try {
-      const res = await api.upload.uploadMOUDucument(file, type);
+      const res = await uploadAPI.uploadMOUDucument(file, type);
       if (res.success) {
         setFormData(prev => ({ ...prev, [type]: res.data.url }));
       } else {
@@ -272,7 +483,7 @@ const MOUForm = () => {
               setFormData(prev => ({
                 ...prev,
                 panNumber: app.pan || "",
-                nationality: app.nationality === "indian" ? "Indian" : (app.nationality || "Indian"),
+                nationality: app.nationality || "indian",
                 motherName: app.motherName || "",
                 accountHolderName: app.candidateName || ""
               }));
@@ -299,19 +510,9 @@ const MOUForm = () => {
 
   // Fetch Countries on Mount
   useEffect(() => {
-    const fetchCountries = async () => {
-      try {
-        const res = await fetch("https://countriesnow.space/api/v0.1/countries/positions");
-        const json = await res.json();
-        if (!json.error) {
-          const names = json.data.map(c => c.name).sort();
-          setCountries(names);
-        }
-      } catch (err) {
-        console.error("Error fetching countries:", err);
-      }
-    };
-    fetchCountries();
+    setCountries(["India / भारत"]);
+    setFormData(prev => ({ ...prev, country: "India / भारत" }));
+    setStates(indianStates);
   }, []);
 
   const [currentEdu, setCurrentEdu] = useState({
@@ -324,84 +525,74 @@ const MOUForm = () => {
   });
 
   // Fetch States when Country changes
-  const handleCountryChange = async (e) => {
+  const handleCountryChange = (e) => {
     const country = e.target.value;
     setFormData(prev => ({ ...prev, country: country, state: "", district: "" }));
-    setStates([]);
-    setDistricts([]);
-
-    if (!country) return;
-
-    setFetchingStates(true);
-    try {
-      const res = await fetch("https://countriesnow.space/api/v0.1/countries/states", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ country })
-      });
-      const json = await res.json();
-      if (!json.error) {
-        const stateNames = json.data.states.map(s => s.name).sort();
-        setStates(stateNames);
-      }
-    } catch (err) {
-      console.error("Error fetching states:", err);
-    } finally {
-      setFetchingStates(false);
+    if (country === "India") {
+      setStates(indianStates);
+    } else {
+      setStates([]);
     }
+    setDistricts([]);
   };
 
   // Fetch Districts (Cities) when State changes
-  const handleStateChange = async (e) => {
-    const state = e.target.value;
-    setFormData(prev => ({ ...prev, state: state, district: "" }));
+  const handleStateChange = (e) => {
+    const stateName = e.target.value;
+    setFormData(prev => ({ ...prev, state: stateName, district: "" }));
     setDistricts([]);
 
-    if (!state || !formData.country) return;
-
-    setFetchingDistricts(true);
-    try {
-      const res = await fetch("https://countriesnow.space/api/v0.1/countries/state/cities", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ country: formData.country, state: state })
-      });
-      const json = await res.json();
-      if (!json.error) {
-        const cityNames = json.data.sort();
-        setDistricts(cityNames);
-      }
-    } catch (err) {
-      console.error("Error fetching cities:", err);
-    } finally {
-      setFetchingDistricts(false);
+    if (indianDistricts[stateName]) {
+      setDistricts(indianDistricts[stateName]);
+    } else {
+      setDistricts([]);
     }
   };
 
-  const handleDistrictChange = (e) => {
+  const handleDistrictChange = async (e) => {
     const dist = e.target.value;
     setFormData(prev => ({ ...prev, district: dist, blockKhand: "", gramPanchayat: "" }));
     setBlocks([]);
     setPanchayats([]);
 
-    if (LOCATION_MAPPING[dist]) {
-      setBlocks(Object.keys(LOCATION_MAPPING[dist]));
-    } else {
-      // Fallback for demo if not in mapping
-      setBlocks(["Block 1", "Block 2", "Other"]);
+    if (dist) {
+      try {
+        const res = await locationAPI.getBlocks({ state: formData.state, district: dist });
+        let blockList = [];
+        if (Array.isArray(res)) blockList = res;
+        else if (res.data) blockList = res.data;
+        
+        // Map objects to bilingual strings for selection
+        setBlocks(blockList.map(b => ({
+          id: b._id,
+          label: b.nameHi ? `${b.name} / ${b.nameHi}` : b.name
+        })));
+      } catch (err) {
+        console.error("Error fetching blocks:", err);
+      }
     }
   };
 
-  const handleBlockChange = (e) => {
-    const block = e.target.value;
-    setFormData(prev => ({ ...prev, blockKhand: block, gramPanchayat: "" }));
+  const handleBlockChange = async (e) => {
+    const blockVal = e.target.value; // This will be the ID or Label depending on how we set value
+    setFormData(prev => ({ ...prev, blockKhand: blockVal, gramPanchayat: "" }));
     setPanchayats([]);
 
-    const dist = formData.district;
-    if (LOCATION_MAPPING[dist] && LOCATION_MAPPING[dist][block]) {
-      setPanchayats(LOCATION_MAPPING[dist][block]);
-    } else {
-      setPanchayats(["Panchayat 1", "Panchayat 2", "Other"]);
+    // Find the block ID to fetch panchayats
+    const selectedBlock = blocks.find(b => b.label === blockVal || b.id === blockVal);
+    const blockId = selectedBlock ? selectedBlock.id : null;
+
+    if (blockId) {
+      try {
+        const res = await locationAPI.getPanchayats({ blockId: blockId });
+        let panchList = [];
+        if (Array.isArray(res)) panchList = res;
+        else if (res.data) panchList = res.data;
+
+        setPanchayats(panchList.map(p => p.nameHi ? `${p.name} / ${p.nameHi}` : p.name));
+      } catch (err) {
+        console.error("Error fetching panchayats:", err);
+      }
     }
   };
 
@@ -411,9 +602,20 @@ const MOUForm = () => {
       return;
     }
 
+    // Only include file if it's a valid URL (not null or File object)
+    const eduData = {
+      level: currentEdu.level,
+      board: currentEdu.board,
+      year: currentEdu.year,
+      percentage: currentEdu.percentage
+    };
+    if (currentEdu.file && typeof currentEdu.file === 'string') {
+      eduData.file = currentEdu.file;
+    }
+
     setFormData({
       ...formData,
-      educationDetails: [...formData.educationDetails, { ...currentEdu }]
+      educationDetails: [...formData.educationDetails, eduData]
     });
 
     // Reset current input
@@ -430,6 +632,26 @@ const MOUForm = () => {
   const removeEducationRow = (index) => {
     const updated = formData.educationDetails.filter((_, i) => i !== index);
     setFormData({ ...formData, educationDetails: updated });
+  };
+
+  const handleMockPayment = async () => {
+    if (!formData.agreeToTerms || !docsVerified) return;
+    setIsProcessing(true);
+    try {
+      const verifyRes = await mouAPI.mockVerify(application._id, formData);
+      if (verifyRes.success) {
+        alert("DEV MOCK: Role updated to Employee successfully!\n\nYou will be logged out now. Please login again as Employee.");
+        logout();
+        navigate("/login", { replace: true });
+      } else {
+        alert(verifyRes.error || "Mock verification failed");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Mock payment failed");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handlePayment = async () => {
@@ -507,9 +729,9 @@ const MOUForm = () => {
               });
 
               if (verifyRes.success) {
-                alert("Payment Successful! Your role has been updated to Employee.");
-                navigate("/dashboard");
-                window.location.reload(); // To refresh sidebar/permissions
+                alert("Payment Successful! Your role has been updated to Employee.\n\nYou will be logged out now. Please login again as Employee.");
+                logout();
+                navigate("/login", { replace: true });
               } else {
                 alert(verifyRes.error || "Verification failed");
               }
@@ -589,12 +811,18 @@ const MOUForm = () => {
           {/* Advt & Date Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 divide-x divide-[#5cb87a] border-b-2 border-green-500 bg-[#9ddfaf]">
             <div className="p-4 text-center">
-              <div className="font-black text-base text-black mb-1">Advt No: {advtNo}</div>
-              <div className="font-bold text-sm text-black tracking-wide">Date: {exam?.startDate ? new Date(exam.startDate).toLocaleDateString() : "10/04/2026"}</div>
+              <div className="font-black text-xs text-black mb-1 uppercase tracking-tighter">Advt No: {advtNo}</div>
+              <div className="flex justify-center gap-4 text-[11px] font-black text-black">
+                <div className="bg-white/50 px-2 py-0.5 rounded border border-green-200">START: {exam?.mouStartDate ? new Date(exam.mouStartDate).toLocaleDateString() : new Date().toLocaleDateString()}</div>
+                <div className="bg-white/50 px-2 py-0.5 rounded border border-green-200">END: {exam?.mouEndDate ? new Date(exam.mouEndDate).toLocaleDateString() : new Date(new Date().setFullYear(new Date().getFullYear() + 2)).toLocaleDateString()}</div>
+              </div>
             </div>
             <div className="p-4 text-center">
-              <div className="font-black text-base text-black mb-1">विज्ञापन सं. {advtNo}</div>
-              <div className="font-bold text-sm text-black tracking-wide">दिनांक - {exam?.startDate ? new Date(exam.startDate).toLocaleDateString() : "10/04/2026"}</div>
+              <div className="font-black text-xs text-black mb-1 uppercase tracking-tighter">विज्ञापन संख्या: {advtNo}</div>
+              <div className="flex justify-center gap-4 text-[11px] font-black text-black">
+                <div className="bg-white/50 px-2 py-0.5 rounded border border-green-200">प्रारंभ तिथि: {exam?.mouStartDate ? new Date(exam.mouStartDate).toLocaleDateString() : new Date().toLocaleDateString()}</div>
+                <div className="bg-white/50 px-2 py-0.5 rounded border border-green-200">समाप्ति तिथि: {exam?.mouEndDate ? new Date(exam.mouEndDate).toLocaleDateString() : new Date(new Date().setFullYear(new Date().getFullYear() + 2)).toLocaleDateString()}</div>
+              </div>
             </div>
           </div>
 
@@ -690,7 +918,18 @@ const MOUForm = () => {
               </div>
               <div>
                 <FormLabel en="PAN Number" hi="पैन संख्या" required />
-                <FormInput value={formData.panNumber} onChange={(e) => setFormData({ ...formData, panNumber: e.target.value })} placeholder="P-A-N No." />
+                <FormInput
+                  value={formData.panNumber}
+                  onChange={(e) => {
+                    const val = e.target.value.toUpperCase();
+                    if (val.length <= 10) setFormData({ ...formData, panNumber: val });
+                  }}
+                  placeholder="ABCDE1234F"
+                  className={formData.panNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panNumber) ? "border-red-500 bg-red-50" : ""}
+                />
+                {formData.panNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panNumber) && (
+                  <p className="text-[10px] text-red-500 font-bold mt-1">Invalid PAN Card format</p>
+                )}
               </div>
             </div>
 
@@ -809,7 +1048,7 @@ const MOUForm = () => {
                 <FormSelect
                   value={formData.blockKhand}
                   onChange={handleBlockChange}
-                  options={blocks}
+                  options={blocks.map(b => b.label)}
                   placeholder="--Select Block--"
                 />
               </div>
@@ -822,11 +1061,11 @@ const MOUForm = () => {
                   placeholder="--Select Panchayat--"
                 />
               </div>
-
               <div>
-                <FormLabel en="PIN Code" hi="पिन कोड" required />
-                <FormInput value={formData.pincode} onChange={(e) => setFormData({ ...formData, pincode: e.target.value })} />
+                <FormLabel en="Post" hi="डाकघर" required />
+                <FormInput value={formData.post} onChange={(e) => setFormData({ ...formData, post: e.target.value })} />
               </div>
+
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -839,15 +1078,16 @@ const MOUForm = () => {
                 <FormInput value={formData.wardNo} onChange={(e) => setFormData({ ...formData, wardNo: e.target.value })} />
               </div>
               <div>
-                <FormLabel en="Post" hi="डाकघर" required />
-                <FormInput value={formData.post} onChange={(e) => setFormData({ ...formData, post: e.target.value })} />
+                <FormLabel en="Police Station (PS)" hi="थाना" required />
+                <FormInput value={formData.policeStation} onChange={(e) => setFormData({ ...formData, policeStation: e.target.value })} />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
               <div>
-                <FormLabel en="Police Station (PS)" hi="थाना" required />
-                <FormInput value={formData.policeStation} onChange={(e) => setFormData({ ...formData, policeStation: e.target.value })} />
+                <FormLabel en="PIN Code" hi="पिन कोड" required />
+                <FormInput value={formData.pincode} onChange={(e) => setFormData({ ...formData, pincode: e.target.value })} />
               </div>
             </div>
           </div>
@@ -866,9 +1106,9 @@ const MOUForm = () => {
                   <tr className="border-b border-[#5cb87a]">
                     <th className="px-4 py-3 border-r border-[#5cb87a]">Qualification / योग्यता</th>
                     <th className="px-4 py-3 border-r border-[#5cb87a]">Board / University / बोर्ड</th>
-                    <th className="px-4 py-3 border-r border-[#5cb87a] text-center">Year / वर्ष</th>
+                    <th className="px-4 py-3 border-r border-[#5cb87a] text-center">Passing Year / उत्तीर्ण वर्ष</th>
                     <th className="px-4 py-3 border-r border-[#5cb87a] text-center">Marks / अंक (%)</th>
-                    <th className="px-4 py-3 border-r border-[#5cb87a]">Document / दस्तावेज़</th>
+                    <th className="px-4 py-3 border-r border-[#5cb87a]">Marksheet / मार्कशीट</th>
                     <th className="px-4 py-3 text-center">Action / कार्य</th>
                   </tr>
                 </thead>
@@ -910,13 +1150,6 @@ const MOUForm = () => {
                 <Plus className="w-5 h-5 bg-white p-1 rounded-full border border-[#5cb87a]" />
                 ADD NEW QUALIFICATION / नई योग्यता जोड़ें
               </h4>
-              <button
-                type="button"
-                onClick={handleSaveEducation}
-                className="flex items-center gap-2 px-8 py-2 bg-[#0aca00] text-white rounded border border-[#5cb87a] hover:bg-[#08a000] shadow shadow-green-100 transition-all font-black text-xs uppercase tracking-widest transform active:scale-95"
-              >
-                <Save className="w-4 h-4" /> SAVE
-              </button>
             </div>
 
             <div className="p-6 grid grid-cols-1 md:grid-cols-12 gap-6 items-start bg-[#c2fbd7]/30">
@@ -961,31 +1194,39 @@ const MOUForm = () => {
 
               {/* Year Column */}
               <div className="md:col-span-2">
-                <FormLabel en="Year / वर्ष :" required />
+                <FormLabel en="Passing Year" hi="उत्तीर्ण वर्ष" required />
                 <FormInput
                   className="bg-white border-[#5cb87a]"
                   type="number"
                   value={currentEdu.year}
-                  onChange={(e) => setCurrentEdu({ ...currentEdu, year: e.target.value })}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val.length <= 4) setCurrentEdu({ ...currentEdu, year: val });
+                  }}
                   placeholder="YYYY"
                 />
               </div>
 
               {/* Marks Column */}
               <div className="md:col-span-2">
-                <FormLabel en="Marks (%) / अंक (%) :" required />
+                <FormLabel en="Marks (%)" hi="अंक (%)" required />
                 <FormInput
                   className="bg-white border-[#5cb87a]"
                   type="number"
                   value={currentEdu.percentage}
-                  onChange={(e) => setCurrentEdu({ ...currentEdu, percentage: e.target.value })}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (!val || (parseFloat(val) >= 0 && parseFloat(val) <= 100)) {
+                      setCurrentEdu({ ...currentEdu, percentage: val });
+                    }
+                  }}
                   placeholder="%"
                 />
               </div>
 
               {/* Upload Column */}
               <div className="md:col-span-2">
-                <FormLabel en="Document / दस्तावेज़ :" />
+                <FormLabel en="Marksheet" hi="मार्कशीट" />
                 <div className="relative">
                   <input
                     type="file"
@@ -1009,6 +1250,16 @@ const MOUForm = () => {
                 </div>
               </div>
             </div>
+
+            <div className="p-3 bg-gray-50 border-t border-[#5cb87a] flex justify-end">
+              <button
+                type="button"
+                onClick={handleSaveEducation}
+                className="flex items-center gap-2 px-12 py-2.5 bg-[#0aca00] text-white rounded border border-[#5cb87a] hover:bg-[#08a000] shadow shadow-green-100 transition-all font-black text-sm uppercase tracking-widest transform active:scale-95"
+              >
+                <Plus className="w-4 h-4" /> ADD
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1031,9 +1282,48 @@ const MOUForm = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
-            <div>
+            <div className="relative">
               <FormLabel en="Language Known" hi="ज्ञात भाषाएं" required />
-              <FormInput value={formData.language} onChange={(e) => setFormData({ ...formData, language: e.target.value })} placeholder="e.g. Hindi, English" />
+              <button
+                type="button"
+                onClick={() => setIsOpenLang(!isOpenLang)}
+                className="w-full flex items-center justify-between px-3 py-2 bg-white border border-gray-300 rounded focus:ring-1 focus:ring-green-500 outline-none text-sm min-h-[42px]"
+              >
+                <div className="flex flex-wrap gap-1">
+                  {formData.language ? formData.language.split(", ").map(l => (
+                    <span key={l} className="bg-green-50 text-green-700 px-3 py-1 rounded-full text-xs font-normal border border-green-200">{l}</span>
+                  )) : <span className="text-gray-400">--Select Languages--</span>}
+                </div>
+                <Plus className={`w-4 h-4 text-gray-400 transition-transform ${isOpenLang ? "rotate-45" : ""}`} />
+              </button>
+
+              {isOpenLang && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setIsOpenLang(false)}></div>
+                  <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl p-2 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="grid grid-cols-2 gap-1">
+                      {["Hindi", "English", "Sanskrit", "Bhojpuri", "Bengali", "Maithili", "Odia", "Other"].map(lang => {
+                        const isSelected = formData.language?.split(", ").includes(lang);
+                        return (
+                          <label key={lang} className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${isSelected ? "bg-green-50" : "hover:bg-gray-50"}`}>
+                            <input
+                              type="checkbox"
+                              className="accent-green-600"
+                              checked={isSelected}
+                              onChange={() => {
+                                const current = formData.language ? formData.language.split(", ").filter(l => l) : [];
+                                const updated = isSelected ? current.filter(l => l !== lang) : [...current, lang];
+                                setFormData({ ...formData, language: updated.join(", ") });
+                              }}
+                            />
+                            <span className={`text-xs font-bold ${isSelected ? "text-green-700" : "text-gray-600"}`}>{lang}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
             <div>
               <FormLabel en="Blood Group" hi="रक्त समूह" required />
@@ -1063,13 +1353,30 @@ const MOUForm = () => {
               </div>
               <div>
                 <FormLabel en="Nominee Age" hi="नॉमिनी की आयु" required />
-                <FormInput type="number" value={formData.nomineeAge} onChange={(e) => setFormData({ ...formData, nomineeAge: e.target.value })} />
+                <FormInput
+                  type="number"
+                  value={formData.nomineeAge}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (!val || (parseInt(val) >= 1 && parseInt(val) <= 120)) {
+                      setFormData({ ...formData, nomineeAge: val });
+                    }
+                  }}
+                  placeholder="Age"
+                />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
-                <FormLabel en="Nominee Aadhar" hi="नॉमिनी आधार" required />
-                <FormInput value={formData.nomineeAadhar} onChange={(e) => setFormData({ ...formData, nomineeAadhar: e.target.value })} />
+                <FormLabel en="Nominee Aadhar No" hi="नॉमिनी आधार नं" required />
+                <FormInput
+                  value={formData.nomineeAadhar}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, "");
+                    if (val.length <= 12) setFormData({ ...formData, nomineeAadhar: val });
+                  }}
+                  placeholder="12 Digit Aadhar"
+                />
               </div>
               <div>
                 <FormLabel en="Nominee Mobile" hi="मोबाइल नंबर" required />
@@ -1123,20 +1430,20 @@ const MOUForm = () => {
                 <label htmlFor="bankDoc" className={`flex-1 flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl cursor-pointer transition-all ${formData.bankDoc ? 'bg-green-50 border-green-500' : 'bg-gray-50 border-gray-300 hover:border-green-500'}`}>
                   {uploadingDoc === "bankDoc" ? (
                     <div className="flex flex-col items-center gap-2">
-                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500"></div>
-                       <span className="text-xs font-bold text-gray-500">Uploading Document...</span>
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500"></div>
+                      <span className="text-xs font-bold text-gray-500">Uploading Document...</span>
                     </div>
                   ) : formData.bankDoc ? (
                     <div className="flex flex-col items-center gap-2">
                       <div className="w-20 h-20 rounded-lg border-2 border-green-200 overflow-hidden shadow-md bg-white">
-                         {formData.bankDoc.toLowerCase().endsWith('.pdf') ? (
-                           <div className="w-full h-full flex flex-col items-center justify-center bg-red-50 text-red-500">
-                             <FileText className="w-8 h-8" />
-                             <span className="text-[10px] font-black uppercase">PDF Format</span>
-                           </div>
-                         ) : (
-                           <img src={formData.bankDoc} className="w-full h-full object-cover" alt="Bank Doc Preview" />
-                         )}
+                        {formData.bankDoc.toLowerCase().endsWith('.pdf') ? (
+                          <div className="w-full h-full flex flex-col items-center justify-center bg-red-50 text-red-500">
+                            <FileText className="w-8 h-8" />
+                            <span className="text-[10px] font-black uppercase">PDF Format</span>
+                          </div>
+                        ) : (
+                          <img src={formData.bankDoc} className="w-full h-full object-cover" alt="Bank Doc Preview" />
+                        )}
                       </div>
                       <div className="flex items-center gap-1">
                         <CheckCircle2 className="w-5 h-5 text-green-600" />
@@ -1159,35 +1466,40 @@ const MOUForm = () => {
           </div>
 
           {/* Declaration Section */}
-          <div className="mt-12 p-6 bg-green-50 rounded-xl border-2 border-green-200">
+          <div className="mt-12 p-6 bg-green-50 rounded-xl border-2 border-green-200 space-y-6">
             <div className="flex gap-4 items-start">
               <input
                 type="checkbox"
                 id="declaration"
-                className="mt-1 w-5 h-5 accent-green-600"
+                className="mt-1 w-5 h-5 accent-green-600 shrink-0 cursor-pointer"
                 checked={formData.agreeToTerms}
                 onChange={(e) => setFormData({ ...formData, agreeToTerms: e.target.checked })}
               />
-              <div className="flex-1">
-                <label htmlFor="declaration" className="text-sm font-semibold text-gray-800 leading-relaxed cursor-pointer select-none">
-                  I hereby declare that the details furnished above are true and correct to the best of my knowledge and belief and I undertake to inform you of any changes therein, immediately. In case any of the above information is found to be false or untrue or misleading or misrepresenting, I am/may are aware that I/may be held liable for it.
-                </label>
-                <div className="mt-4 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowDocModal(true)}
-                    className="text-[#0aca00] font-bold underline hover:text-green-800 flex items-center gap-1 transition-all"
-                  >
-                    <FileText className="w-4 h-4" />
-                    I’ve read and agree with the contract mentioned overleaf
-                  </button>
-                  {docsVerified && <CheckCircle2 className="w-4 h-4 text-green-600" />}
-                </div>
-              </div>
+              <label htmlFor="declaration" className="text-sm font-semibold text-gray-800 leading-relaxed cursor-pointer select-none">
+                I hereby declare that the details furnished above are true and correct to the best of my knowledge and belief and I undertake to inform you of any changes therein, immediately. In case any of the above information is found to be false or untrue or misleading or misrepresenting, I am/may are aware that I/may be held liable for it.
+              </label>
+            </div>
+
+            <div className="flex gap-4 items-center pl-0">
+              <input 
+                type="checkbox" 
+                id="docVerify" 
+                className="w-5 h-5 accent-green-600 shrink-0 cursor-pointer"
+                checked={docsVerified}
+                onChange={(e) => setDocsVerified(e.target.checked)}
+              />
+              <label 
+                htmlFor="docVerify"
+                className="text-[#0aca00] font-bold underline hover:text-green-800 flex items-center gap-2 transition-all cursor-pointer select-none text-sm"
+              >
+                <FileText className="w-5 h-5" />
+                I’ve read and agree with the contract mentioned overleaf
+              </label>
+              {docsVerified && <CheckCircle2 className="w-5 h-5 text-green-600 animate-in zoom-in" />}
             </div>
           </div>
 
-          <div className="flex justify-center pt-10">
+          <div className="flex flex-col items-center gap-4 pt-10">
             <button
               onClick={handlePayment}
               disabled={!formData.agreeToTerms || !docsVerified || isProcessing}
@@ -1198,6 +1510,18 @@ const MOUForm = () => {
             >
               {isProcessing ? "PROCESSING..." : `SUBMIT & PAY ₹${feeDetails?.totalAmount?.toLocaleString() || "1,790"}/-`}
             </button>
+
+            {/* MOCK PAYMENT BUTTON - ONLY FOR LOCALHOST TESTING */}
+            {(window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") && (
+              <button
+                type="button"
+                onClick={handleMockPayment}
+                disabled={!formData.agreeToTerms || !docsVerified || isProcessing}
+                className="text-[10px] font-bold text-red-500 hover:text-red-700 underline uppercase tracking-widest mt-2"
+              >
+                Dev Only: Mock Payment (Role Change Bypass)
+              </button>
+            )}
           </div>
 
         </div>
@@ -1225,7 +1549,7 @@ const MOUForm = () => {
 const MOUModal = ({ isOpen, onClose, onVerify, application, formData, empId }) => {
   const [activeTab, setActiveTab] = useState(0);
   const [viewedCount, setViewedCount] = useState(1);
-  const logo = "/src/assets/JSSAogo.png"; // Logo Path
+  const logo = "/src/assets/docs/logo.png"; // Logo Path
 
   const tabs = [
     { title: "Authorization Letter", icon: <FileText className="w-4 h-4" /> },

@@ -1,0 +1,218 @@
+import React, { useState, useEffect } from "react";
+import DashboardLayout from "../../components/DashboardLayout";
+import { 
+  User, 
+  Mail, 
+  Phone, 
+  MapPin, 
+  Building, 
+  CreditCard, 
+  GraduationCap, 
+  Briefcase,
+  Calendar,
+  ShieldCheck,
+  Globe,
+  Loader2
+} from "lucide-react";
+import { createPaperAPI } from "../../utils/api";
+import { useAuth } from "../../auth/AuthProvider";
+
+const GREEN = "#3AB000";
+
+const ProfileField = ({ icon: Icon, label, value, color = "text-gray-600" }) => (
+  <div className="flex items-start gap-3 p-3 bg-gray-50 border border-gray-200">
+    <div className={`p-2 ${color.replace('text', 'bg')}/10`}>
+      <Icon size={18} className={color} />
+    </div>
+    <div className="flex-1">
+      <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">{label}</p>
+      <p className="text-sm font-bold text-gray-900 break-words mt-1">{value || "Not Provided"}</p>
+    </div>
+  </div>
+);
+
+const SectionHeader = ({ icon: Icon, title }) => (
+  <div className="flex items-center gap-2 mb-5 pb-3 border-b-2 border-green-600">
+    <Icon className="text-green-600" size={20} />
+    <h2 className="text-base font-black text-gray-900 uppercase tracking-tight">{title}</h2>
+  </div>
+);
+
+const EmployeeProfile = () => {
+  const [loading, setLoading] = useState(true);
+  const [app, setApp] = useState(null);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await createPaperAPI.getAssigned();
+        if (res.success && res.data.tests?.length > 0) {
+          setApp(res.data.tests[0].userAttempt?.applicationId);
+        }
+      } catch (err) {
+        console.error("Profile fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center min-h-[70vh]">
+          <Loader2 className="w-12 h-12 text-green-600 animate-spin mb-4" />
+          <p className="font-bold text-gray-700">Loading your profile details...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  return (
+    <DashboardLayout>
+      <div className="p-4 sm:p-8 max-w-6xl mx-auto">
+        
+        {/* Header Profile Card */}
+        <div className="relative mb-8 pt-20">
+          <div className="absolute top-0 left-0 w-full h-40 bg-gradient-to-r from-green-600 to-green-700">
+            <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_center,_white_1px,_transparent_1px)] bg-[size:20px_20px]"></div>
+          </div>
+          
+          <div className="bg-white p-6 sm:p-8 border border-green-600 flex flex-col md:flex-row items-center md:items-end gap-6 relative">
+            <div className="w-32 h-32 sm:w-40 sm:h-40 bg-white p-1 border border-green-600 -mt-20 md:-mt-24 overflow-hidden group">
+              <img 
+                src={app?.photo || "https://ui-avatars.com/api/?name=User&background=3AB000&color=fff"} 
+                alt="Profile" 
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+              />
+            </div>
+            
+            <div className="flex-1 text-center md:text-left">
+              <div className="flex flex-col md:flex-row md:items-center gap-3 mb-3">
+                <h1 className="text-4xl font-black text-gray-900 uppercase tracking-tight">
+                  {app?.candidateName}
+                </h1>
+                <span className="inline-flex items-center px-3 py-1.5 bg-green-600 text-white text-[9px] font-black uppercase tracking-widest border border-green-700">
+                  <ShieldCheck size={12} className="mr-1" /> Verified Employee
+                </span>
+              </div>
+              <div className="flex flex-wrap justify-center md:justify-start gap-6 text-gray-600 font-bold text-sm">
+                <span className="flex items-center gap-1.5"><Briefcase size={16} className="text-green-600" /> {app?.post || "Not Assigned"}</span>
+                <span className="flex items-center gap-1.5"><MapPin size={16} className="text-red-500" /> {app?.district}, {app?.state}</span>
+                <span className="flex items-center gap-1.5 text-blue-600"><Globe size={16} /> ID: {app?.employeeId || `JSSA/EMP/${app?._id?.slice(-6).toUpperCase()}`}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* Main Content Areas */}
+          <div className="lg:col-span-2 space-y-8">
+            
+            {/* Personal Details */}
+            <div className="bg-white p-6 sm:p-8 border border-green-600">
+              <SectionHeader icon={User} title="Personal Details" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
+                <ProfileField icon={User} label="Father's Name" value={app?.fatherName} />
+                <ProfileField icon={User} label="Mother's Name" value={app?.motherName} color="text-pink-600" />
+                <ProfileField icon={Calendar} label="Date of Birth" value={new Date(app?.dob).toLocaleDateString()} color="text-orange-600" />
+                <ProfileField icon={Phone} label="Mobile Number" value={app?.mobile} color="text-green-600" />
+                <ProfileField icon={Mail} label="Email Address" value={app?.email} color="text-blue-600" />
+                <ProfileField icon={Globe} label="Nationality" value={app?.nationality && app.nationality.charAt(0).toUpperCase() + app.nationality.slice(1)} color="text-purple-600" />
+              </div>
+            </div>
+
+            {/* Educational Qualifications */}
+            <div className="bg-white p-6 sm:p-8 border border-green-600">
+              <SectionHeader icon={GraduationCap} title="Education Qualifications" />
+              {app?.educationDetails && app.educationDetails.length > 0 ? (
+                <div className="overflow-x-auto border border-green-600">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="bg-green-600 text-[9px] font-black uppercase tracking-widest text-white border-b border-green-700">
+                        <th className="px-4 py-3">Qualification</th>
+                        <th className="px-4 py-3">Board/University</th>
+                        <th className="px-4 py-3 text-center">Year</th>
+                        <th className="px-4 py-3 text-center">Marks (%)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {app.educationDetails.map((edu, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-3 font-bold text-gray-800">{edu.level}</td>
+                          <td className="px-4 py-3 text-gray-600 font-semibold">{edu.board}</td>
+                          <td className="px-4 py-3 text-center text-gray-600 font-semibold">{edu.year}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="px-2 py-1 bg-green-600 text-white font-bold">{edu.percentage}%</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="p-8 text-center bg-gray-50 border border-dashed border-green-600">
+                  <GraduationCap size={40} className="mx-auto mb-3 text-gray-300" />
+                  <p className="text-sm font-bold text-gray-600">No education details added yet</p>
+                  <p className="text-[11px] text-gray-500 mt-2">Complete your MOU form to add educational qualifications</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Sidebar Area */}
+          <div className="space-y-8">
+            
+            {/* Bank Details from MOU */}
+            <div className="bg-white p-6 border border-green-600 bg-gradient-to-br from-white to-gray-50">
+              <SectionHeader icon={CreditCard} title="Bank Information" />
+              <div className="space-y-3 text-left">
+                <ProfileField icon={Building} label="Bank Name" value={app?.bankName} color="text-blue-600" />
+                <ProfileField icon={CreditCard} label="Account Number" value={app?.accountNumber} color="text-gray-800" />
+                <ProfileField icon={Globe} label="IFSC Code" value={app?.ifscCode} color="text-orange-600" />
+                <ProfileField icon={User} label="A/C Holder" value={app?.accountHolderName} color="text-green-600" />
+                <div className="mt-4 p-3 bg-white border border-green-600">
+                  <p className="text-[9px] font-bold text-gray-600 uppercase">Verification Status</p>
+                  <p className="text-xs font-black text-green-600 flex items-center mt-2">
+                    <ShieldCheck size={14} className="mr-1" /> PAYMENTS ENABLED
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Professional & Address */}
+            <div className="bg-white p-6 border border-green-600">
+              <SectionHeader icon={MapPin} title="Full Address" />
+              <div className="space-y-4 text-left">
+                 <div className="p-4 bg-gray-50 border border-green-600">
+                   <p className="text-[9px] font-bold text-gray-600 uppercase mb-2">Detailed Location</p>
+                   <p className="text-sm font-bold text-gray-800 leading-relaxed">
+                     {app?.address}, Ward {app?.wardNo}, <br />
+                     {app?.panchayat}, {app?.block}, <br />
+                     {app?.district}, {app?.state} - {app?.pincode}
+                   </p>
+                 </div>
+                 <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 bg-red-50 border border-red-600 text-center">
+                      <p className="text-[8px] font-black text-red-600 uppercase mb-1">PAN NO.</p>
+                      <p className="text-xs font-black text-red-700">{app?.panNumber || app?.pan || "N/A"}</p>
+                    </div>
+                    <div className="p-3 bg-blue-50 border border-blue-600 text-center">
+                      <p className="text-[8px] font-black text-blue-600 uppercase mb-1">ADHAR VERIFIED</p>
+                      <p className="text-xs font-black text-blue-700">SUCCESS</p>
+                    </div>
+                 </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </DashboardLayout>
+  );
+};
+
+export default EmployeeProfile;

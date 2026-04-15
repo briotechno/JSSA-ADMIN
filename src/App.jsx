@@ -23,6 +23,8 @@ import TransactionHistory from "./pages/TransactionHistory/TransactionHistory.js
 import MOU from "./pages/EmployeeManagement/MOU";
 import FeeStructure from "./pages/EmployeeManagement/FeeStructure";
 import EmployeePlaceholder from "./pages/EmployeeDashboard/EmployeePlaceholder";
+import EmployeeLetters from "./pages/EmployeeDashboard/EmployeeLetters";
+import EmployeeProfile from "./pages/EmployeeDashboard/EmployeeProfile";
 
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -35,6 +37,8 @@ import Gallery from "./pages/Gallery/Gallery";
 import Scroller from "./pages/Scroller/Scroller";
 import Notifications from "./pages/Notifications/Notifications";
 import Notice from "./pages/Notice/Notice.jsx";
+import BlockManagement from "./pages/Admin/BlockManagement.jsx";
+import PanchayatManagement from "./pages/Admin/PanchayatManagement.jsx";
 import WhatsAppTest from "./pages/Admin/WhatsAppTest.jsx";
 import Logout from "./pages/Logout";
 
@@ -211,6 +215,22 @@ function App() {
                 </RequireRole>
               }
             />
+            <Route
+              path="/admin/location/block"
+              element={
+                <RequireRole allow={["admin"]}>
+                  <BlockManagement />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/admin/location/panchayat"
+              element={
+                <RequireRole allow={["admin"]}>
+                  <PanchayatManagement />
+                </RequireRole>
+              }
+            />
 
 
             {/* Scroller - Admin only */}
@@ -250,22 +270,22 @@ function App() {
 
             {/* Employee Routes */}
             <Route element={<RequireRole allow={["employee"]} />}>
-              <Route path="/dashboard" element={<EmployeePlaceholder title="Employee Dashboard" />} />
-              <Route path="/feed" element={<EmployeePlaceholder title="Feed" />} />
-              <Route path="/cards" element={<EmployeePlaceholder title="Cards" />} />
-              <Route path="/leads" element={<EmployeePlaceholder title="Leads" />} />
-              <Route path="/my-team" element={<EmployeePlaceholder title="My Team" />} />
-              <Route path="/letters" element={<EmployeePlaceholder title="Letters" />} />
-              <Route path="/working-zone" element={<EmployeePlaceholder title="Working Zone" />} />
-              <Route path="/reviews" element={<EmployeePlaceholder title="Review & Ratings" />} />
-              <Route path="/meetings" element={<EmployeePlaceholder title="Meetings" />} />
-              <Route path="/announcements" element={<EmployeePlaceholder title="Announcements" />} />
-              <Route path="/salary" element={<EmployeePlaceholder title="Salary" />} />
-              <Route path="/training" element={<EmployeePlaceholder title="Training" />} />
-              <Route path="/profile" element={<EmployeePlaceholder title="My Profile" />} />
-              <Route path="/hire-team" element={<EmployeePlaceholder title="Hire Team" />} />
-              <Route path="/attendance" element={<EmployeePlaceholder title="Attendance" />} />
-              <Route path="/support" element={<EmployeePlaceholder title="Support" />} />
+              <Route path="/employee/dashboard" element={<EmployeePlaceholder title="Employee Dashboard" />} />
+              <Route path="/employee/feed" element={<EmployeePlaceholder title="Feed" />} />
+              <Route path="/employee/cards" element={<EmployeePlaceholder title="Cards" />} />
+              <Route path="/employee/leads" element={<EmployeePlaceholder title="Leads" />} />
+              <Route path="/employee/my-team" element={<EmployeePlaceholder title="My Team" />} />
+              <Route path="/employee/letters" element={<EmployeeLetters />} />
+              <Route path="/employee/working-zone" element={<EmployeePlaceholder title="Working Zone" />} />
+              <Route path="/employee/reviews" element={<EmployeePlaceholder title="Review & Ratings" />} />
+              <Route path="/employee/meetings" element={<EmployeePlaceholder title="Meetings" />} />
+              <Route path="/employee/announcements" element={<EmployeePlaceholder title="Announcements" />} />
+              <Route path="/employee/salary" element={<EmployeePlaceholder title="Salary" />} />
+              <Route path="/employee/training" element={<EmployeePlaceholder title="Training" />} />
+              <Route path="/employee/profile" element={<EmployeeProfile />} />
+              <Route path="/employee/hire-team" element={<EmployeePlaceholder title="Hire Team" />} />
+              <Route path="/employee/attendance" element={<EmployeePlaceholder title="Attendance" />} />
+              <Route path="/employee/support" element={<EmployeePlaceholder title="Support" />} />
             </Route>
 
             <Route path="/logout" element={<Logout />} />

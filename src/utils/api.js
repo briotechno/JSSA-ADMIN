@@ -774,6 +774,65 @@ export const mouAPI = {
       body: JSON.stringify(verificationData),
     });
   },
+  mockVerify: async (applicationId, formData) => {
+    return apiRequest("/mou/mock-verify", {
+      method: "POST",
+      body: JSON.stringify({ applicationId, formData }),
+    });
+  },
+};
+
+export const locationAPI = {
+  getBlocks: async (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiRequest(`/location/blocks${query ? `?${query}` : ""}`, { method: "GET" });
+  },
+  createBlock: async (data) => {
+    return apiRequest("/location/blocks", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+  bulkCreateBlocks: async (data) => {
+    return apiRequest("/location/blocks/bulk", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+  updateBlock: async (id, data) => {
+    return apiRequest(`/location/blocks/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+  deleteBlock: async (id) => {
+    return apiRequest(`/location/blocks/${id}`, { method: "DELETE" });
+  },
+  getPanchayats: async (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiRequest(`/location/panchayats${query ? `?${query}` : ""}`, { method: "GET" });
+  },
+  createPanchayat: async (data) => {
+    return apiRequest("/location/panchayats", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+  bulkCreatePanchayats: async (data) => {
+    return apiRequest("/location/panchayats/bulk", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+  updatePanchayat: async (id, data) => {
+    return apiRequest(`/location/panchayats/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+  deletePanchayat: async (id) => {
+    return apiRequest(`/location/panchayats/${id}`, { method: "DELETE" });
+  },
 };
 
 // Combined API object
@@ -787,6 +846,7 @@ export const api = {
   testResults: testResultsAPI,
   feeStructure: feeStructureAPI,
   mou: mouAPI,
+  location: locationAPI,
 };
 
 export default apiRequest;

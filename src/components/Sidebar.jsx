@@ -110,7 +110,7 @@ const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { role } = useAuth();
-
+  // const role = "employee"
   const activeItem = location.pathname;
 
   const menuItems = useMemo(() => {
@@ -162,6 +162,14 @@ const Sidebar = () => {
             { name: "Fee Structure", icon: CreditCard, path: "/admin/fee-structure" },
           ],
         },
+        {
+          name: "Location Management",
+          icon: Settings,
+          children: [
+            { name: "Block", icon: FileText, path: "/admin/location/block" },
+            { name: "Gram Panchayat", icon: FileText, path: "/admin/location/panchayat" },
+          ],
+        },
         // {
         //   name: "Settings",
         //   icon: Settings,
@@ -180,22 +188,22 @@ const Sidebar = () => {
 
     if (role === "employee") {
       return [
-        { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-        { name: "Feed", icon: FileText, path: "/feed" },
-        { name: "Cards", icon: CreditCard, path: "/cards" },
-        { name: "Leads", icon: Users, path: "/leads" },
-        { name: "My Team", icon: Users, path: "/my-team" },
-        { name: "Letters", icon: ScrollText, path: "/letters" },
-        { name: "Working Zone", icon: LayoutDashboard, path: "/working-zone" },
-        { name: "Review & Ratings", icon: Bell, path: "/reviews" },
-        { name: "Meetings", icon: Users, path: "/meetings" },
-        { name: "Announcements", icon: Bell, path: "/announcements" },
-        { name: "Salary", icon: CreditCard, path: "/salary" },
-        { name: "Training", icon: BookOpen, path: "/training" },
-        { name: "My Profile", icon: UserCog, path: "/profile" },
-        { name: "Hire Team", icon: Users, path: "/hire-team" },
-        { name: "Attendance", icon: Calendar, path: "/attendance" },
-        { name: "Support", icon: Shield, path: "/support" },
+        { name: "Dashboard", icon: LayoutDashboard, path: "/employee/dashboard" },
+        { name: "Feed", icon: FileText, path: "/employee/feed" },
+        { name: "Cards", icon: CreditCard, path: "/employee/cards" },
+        { name: "Leads", icon: Users, path: "/employee/leads" },
+        { name: "My Team", icon: Users, path: "/employee/my-team" },
+        { name: "Letters", icon: ScrollText, path: "/employee/letters" },
+        { name: "Working Zone", icon: LayoutDashboard, path: "/employee/working-zone" },
+        { name: "Review & Ratings", icon: Bell, path: "/employee/reviews" },
+        { name: "Meetings", icon: Users, path: "/employee/meetings" },
+        { name: "Announcements", icon: Bell, path: "/employee/announcements" },
+        { name: "Salary", icon: CreditCard, path: "/employee/salary" },
+        { name: "Training", icon: BookOpen, path: "/employee/training" },
+        { name: "My Profile", icon: UserCog, path: "/employee/profile" },
+        { name: "Hire Team", icon: Users, path: "/employee/hire-team" },
+        { name: "Attendance", icon: Calendar, path: "/employee/attendance" },
+        { name: "Support", icon: Shield, path: "/employee/support" },
         { name: "Logout", icon: LogOut, path: "/logout" },
       ];
     }
@@ -280,7 +288,7 @@ const Sidebar = () => {
                 ? "Admin"
                 : role === "applicant"
                   ? "Applicant"
-                  : "User"}
+                  : "Employee"}
             </span>
           </div>
         </div>
@@ -371,8 +379,8 @@ const Sidebar = () => {
                   {hasChildren && (
                     <div
                       className={`ml-6 mt-1 overflow-hidden transition-all duration-300 ${isOpenThis
-                          ? "max-h-96 opacity-100"
-                          : "max-h-0 opacity-0"
+                        ? "max-h-96 opacity-100"
+                        : "max-h-0 opacity-0"
                         }`}
                     >
                       <ul

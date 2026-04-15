@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Eye, EyeOff, User, Lock, Phone, MessageSquare } from "lucide-react";
+import { Eye, EyeOff, User, Lock, Phone, MessageSquare, CheckCircle2, ArrowRight } from "lucide-react";
 import logo from "../assets/img0.png";
 import { useAuth } from "../auth/AuthProvider";
 import { roleHomePath } from "../auth/auth";
@@ -396,6 +396,8 @@ export default function JSSAbhiyanLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showEmployeeModal, setShowEmployeeModal] = useState(false);
+  const [promotedUserName, setPromotedUserName] = useState("");
 
   // Nimbus OTP States
   const [loginMethod, setLoginMethod] = useState("otp"); // Default to "otp"
@@ -408,6 +410,7 @@ export default function JSSAbhiyanLogin() {
 
   // Only redirect if user is already authenticated AND they're not on the login page intentionally
   // This ensures login page always shows first on app start
+  // BUT: If logout() was just called, wait for auth state to update before redirecting
   useEffect(() => {
     if (isAuthenticated && role) {
       // Small delay to ensure login page renders first
@@ -417,6 +420,13 @@ export default function JSSAbhiyanLogin() {
       return () => clearTimeout(timer);
     }
   }, [isAuthenticated, role, navigate]);
+
+  // Clear auth context when component mounts to prevent cached redirect
+  useEffect(() => {
+    // This ensures when user lands on login page after logout,
+    // the previous auth state is not used
+    return () => {};
+  }, [])
 
   const handleLogin = async () => {
     if (!formData.identifier.trim() || !formData.password) {
@@ -436,6 +446,15 @@ export default function JSSAbhiyanLogin() {
 
       if (response.success && response.data) {
         const { user, token } = response.data;
+        
+        // Check if user was promoted to employee after MOU payment
+        if (formData.role === "applicant" && user.role === "employee") {
+          setPromotedUserName(user.candidateName || user.name || "Applicant");
+          setShowEmployeeModal(true);
+          setFormData(prev => ({ ...prev, identifier: "", password: "" }));
+          return;
+        }
+        
         login({
           identifier: user.email || user.phone,
           role: user.role,
@@ -491,6 +510,17 @@ export default function JSSAbhiyanLogin() {
       const response = await authAPI.nimbusLoginVerify(phoneValue, otpValue, formData.role);
       if (response.success && response.data) {
         const { user, token } = response.data;
+        
+        // Check if user was promoted to employee after MOU payment
+        if (formData.role === "applicant" && user.role === "employee") {
+          setPromotedUserName(user.candidateName || user.name || "Applicant");
+          setShowEmployeeModal(true);
+          setPhoneValue("");
+          setOtpValue("");
+          setOtpSent(false);
+          return;
+        }
+        
         login({
           identifier: user.phone || user.email,
           role: user.role,
@@ -513,27 +543,12 @@ export default function JSSAbhiyanLogin() {
         {/* LEFT: Login Form */}
         <div className="w-full lg:w-1/2 p-6 sm:p-8 lg:p-10 bg-white">
           {/* Brand Header */}
-          <div className="mb-8 flex items-start gap-4">
+          <div className="mb-10 flex flex-col items-center">
             <img
               src={logo}
               alt="Logo"
-              className="w-20 h-20 object-contain flex-shrink-0"
+              className=" object-contain "
             />
-            <div className="flex-1">
-              <h1 className="text-[#3AB000] text-2xl font-bold leading-tight">
-                जन स्वास्थ्य सहायता अभियान
-              </h1>
-              <p className="text-[#3AB000] text-[11px] font-semibold mt-0.5 uppercase tracking-tight">
-                A Project Of Healthcare Research & Development Board
-              </p>
-              <p className="text-gray-500 text-[9px] mt-0.5 leading-tight italic">
-                (HRDB is Division of social welfare organization 'NAC India')
-              </p>
-              <div className="mt-1 flex items-center gap-1">
-                <span className="text-[#3AB000] text-xs font-bold">Registration No. :</span>
-                <span className="text-[#3AB000] text-xs font-bold">053083</span>
-              </div>
-            </div>
           </div>
 
           {/* Form Fields */}
@@ -542,9 +557,10 @@ export default function JSSAbhiyanLogin() {
               <label className="block text-sm font-bold text-gray-800 mb-3">
                 Login as
               </label>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-2 sm:gap-4">
                 {[
                   { value: "applicant", label: "Applicant" },
+                  { value: "employee", label: "Employee" },
                   { value: "admin", label: "Admin" },
                 ].map((opt) => {
                   const active = formData.role === opt.value;
@@ -555,7 +571,7 @@ export default function JSSAbhiyanLogin() {
                       onClick={() => {
                         setFormData((p) => ({ ...p, role: opt.value }));
                       }}
-                      className="px-4 py-3 rounded-xl border-2 text-sm font-bold transition-all duration-200"
+                      className="px-2 sm:px-4 py-3 rounded-xl border-2 text-[10px] sm:text-xs font-bold transition-all duration-200"
                       style={{
                         borderColor: active ? GREEN : "#e5e7eb",
                         background: active ? "#fff" : "#fff",
@@ -599,7 +615,7 @@ export default function JSSAbhiyanLogin() {
                       <label className="block text-sm font-bold text-gray-800">
                         Enter 6-digit OTP
                       </label>
-                      <button 
+                      <button
                         onClick={() => setOtpSent(false)}
                         className="text-xs font-bold text-green-600 hover:underline"
                       >
@@ -705,8 +721,8 @@ export default function JSSAbhiyanLogin() {
 
             <button
               onClick={
-                loginMethod === "password" 
-                  ? handleLogin 
+                loginMethod === "password"
+                  ? handleLogin
                   : (!otpSent ? handleRequestOTP : handleVerifyOTP)
               }
               disabled={loading}
@@ -716,10 +732,10 @@ export default function JSSAbhiyanLogin() {
                 letterSpacing: "0.02em",
               }}
             >
-              {loading 
-                ? "Processing..." 
-                : loginMethod === "password" 
-                  ? "Login" 
+              {loading
+                ? "Processing..."
+                : loginMethod === "password"
+                  ? "Login"
                   : (!otpSent ? "Send OTP" : "Verify & Login")}
             </button>
           </div>
@@ -773,6 +789,67 @@ export default function JSSAbhiyanLogin() {
           </div>
         </div>
       </div>
+
+      {/* Employee Role Promotion Modal */}
+      {showEmployeeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-300">
+            {/* Header */}
+            <div className="relative h-32 bg-gradient-to-r from-green-500 to-green-700 flex items-center justify-center overflow-hidden">
+              <div className="absolute inset-0 opacity-20">
+                <div className="absolute top-[-20%] right-[-10%] w-40 h-40 bg-white rounded-full blur-3xl" />
+              </div>
+              <div className="relative text-white text-center">
+                <CheckCircle2 size={64} className="mx-auto mb-2 animate-bounce" />
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-8 text-center space-y-6">
+              <div>
+                <h2 className="text-2xl font-black text-gray-900 mb-2">Congratulations!</h2>
+                <p className="text-gray-600 font-semibold">
+                  {promotedUserName}
+                </p>
+              </div>
+
+              <div className="bg-green-50 border-2 border-green-200 rounded-2xl p-6 space-y-3">
+                <p className="text-sm font-bold text-gray-800 leading-relaxed">
+                  Your MOU payment has been verified successfully.
+                </p>
+                <p className="text-sm font-bold text-green-700">
+                  You are now an <span className="text-lg">EMPLOYEE</span> of Jan Swasthya Sahayata Abhiyan!
+                </p>
+              </div>
+
+              <div className="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-4 text-left space-y-2">
+                <p className="text-xs font-bold text-blue-900 uppercase tracking-wider">Next Step</p>
+                <p className="text-sm font-semibold text-blue-800">
+                  Please login using the <span className="text-blue-600 font-black">Employee</span> login option to access your employee dashboard.
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  setShowEmployeeModal(false);
+                  setFormData(prev => ({ ...prev, role: "employee" }));
+                }}
+                className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white font-black py-3 rounded-xl transition-all duration-300 hover:shadow-lg hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+              >
+                Continue as Employee
+                <ArrowRight size={18} />
+              </button>
+
+              <button
+                onClick={() => setShowEmployeeModal(false)}
+                className="w-full border-2 border-gray-300 text-gray-700 font-bold py-2 rounded-xl transition-all duration-300 hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

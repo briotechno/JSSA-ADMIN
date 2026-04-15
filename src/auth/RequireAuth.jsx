@@ -18,7 +18,7 @@ export function RequireAuth() {
 }
 
 /**
- * @param {{ allow: Array<"admin" | "applicant">, children?: React.ReactNode }} props
+ * @param {{ allow: Array<"admin" | "applicant" | "employee">, children?: React.ReactNode }} props
  */
 export function RequireRole({ allow, children }) {
   const { role } = useAuth();
@@ -28,6 +28,8 @@ export function RequireRole({ allow, children }) {
   if (!allow.includes(role)) {
     return <Navigate to={roleHomePath(role)} replace state={{ from: location.pathname }} />;
   }
-  return children;
+  
+  // Return children if provided, otherwise return Outlet for layout routes
+  return children ? children : <Outlet />;
 }
 

@@ -48,7 +48,7 @@ async function apiRequest(endpoint, options = {}) {
 
   try {
     const response = await fetch(url, config);
-    
+
     // Check if response is JSON
     let data;
     const contentType = response.headers.get("content-type");
@@ -78,7 +78,7 @@ async function apiRequest(endpoint, options = {}) {
     if (error.message !== "Failed to fetch" && error.name !== "TypeError") {
       console.error("API Error:", error);
     }
-    
+
     // Provide more helpful error messages
     if (error.message === "Failed to fetch" || error.name === "TypeError") {
       // Return error structure instead of throwing for better error handling
@@ -91,7 +91,7 @@ async function apiRequest(endpoint, options = {}) {
 3. Check CORS settings in backend`
       };
     }
-    
+
     // For other errors, return error structure instead of throwing
     return {
       success: false,
@@ -166,7 +166,7 @@ export const applicationsAPI = {
     if (params.startDate) queryParams.append("startDate", params.startDate);
     if (params.endDate) queryParams.append("endDate", params.endDate);
     if (params.paymentStatus) queryParams.append("paymentStatus", params.paymentStatus);
-    
+
     const queryString = queryParams.toString();
     const url = `/applications${queryString ? `?${queryString}` : ""}`;
     return apiRequest(url, { method: "GET" });
@@ -217,7 +217,7 @@ export const jobPostingsAPI = {
     if (params.page) queryParams.append("page", params.page);
     if (params.limit !== undefined) queryParams.append("limit", params.limit);
     if (params.includeCounts) queryParams.append("includeCounts", params.includeCounts);
-    
+
     const queryString = queryParams.toString();
     const url = `/job-postings${queryString ? `?${queryString}` : ""}`;
     return apiRequest(url, { method: "GET" });
@@ -330,7 +330,7 @@ export const galleryAPI = {
   upload: async (formData) => {
     const token = getToken();
     const url = `${API_BASE_URL}/gallery`;
-    
+
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -383,7 +383,7 @@ export const scrollerAPI = {
   upload: async (formData) => {
     const token = getToken();
     const url = `${API_BASE_URL}/scroller`;
-    
+
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -449,14 +449,14 @@ export const paymentsAPI = {
       { method: "GET" }
     );
   },
-  
+
   getTransactions: async (params = {}) => {
     const queryParams = new URLSearchParams();
     if (params.page) queryParams.append("page", params.page);
     if (params.limit !== undefined) queryParams.append("limit", params.limit);
     if (params.status) queryParams.append("status", params.status);
     if (params.search) queryParams.append("search", params.search);
-    
+
     const queryString = queryParams.toString();
     const url = `/payments/transactions${queryString ? `?${queryString}` : ""}`;
     return apiRequest(url, { method: "GET" });
@@ -618,16 +618,16 @@ export const createPaperAPI = {
   },
 
   bulkResetAttempts: async (testId, studentIds) => {
-    return apiRequest(`/create-paper/${testId}/attempts/bulk-reset`, { 
-      method: "DELETE", 
-      body: JSON.stringify({ studentIds }) 
+    return apiRequest(`/create-paper/${testId}/attempts/bulk-reset`, {
+      method: "DELETE",
+      body: JSON.stringify({ studentIds })
     });
   },
 
   planReExam: async (testId, studentIds) => {
-    return apiRequest(`/create-paper/${testId}/re-exam`, { 
-      method: "POST", 
-      body: JSON.stringify({ studentIds }) 
+    return apiRequest(`/create-paper/${testId}/re-exam`, {
+      method: "POST",
+      body: JSON.stringify({ studentIds })
     });
   },
 
@@ -808,6 +808,12 @@ export const locationAPI = {
   deleteBlock: async (id) => {
     return apiRequest(`/location/blocks/${id}`, { method: "DELETE" });
   },
+  deleteBlocks: async (ids) => {
+    return apiRequest("/location/blocks-bulk", {
+      method: "DELETE",
+      body: JSON.stringify({ ids }),
+    });
+  },
   getPanchayats: async (params = {}) => {
     const query = new URLSearchParams(params).toString();
     return apiRequest(`/location/panchayats${query ? `?${query}` : ""}`, { method: "GET" });
@@ -832,6 +838,12 @@ export const locationAPI = {
   },
   deletePanchayat: async (id) => {
     return apiRequest(`/location/panchayats/${id}`, { method: "DELETE" });
+  },
+  deletePanchayats: async (ids) => {
+    return apiRequest("/location/panchayats-bulk", {
+      method: "DELETE",
+      body: JSON.stringify({ ids }),
+    });
   },
 };
 

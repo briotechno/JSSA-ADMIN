@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
 import DashboardLayout from "../../components/DashboardLayout";
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Building, 
-  CreditCard, 
-  GraduationCap, 
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Building,
+  CreditCard,
+  GraduationCap,
   Briefcase,
   Calendar,
   ShieldCheck,
@@ -73,22 +73,22 @@ const EmployeeProfile = () => {
   return (
     <DashboardLayout>
       <div className="p-4 sm:p-8 max-w-6xl mx-auto">
-        
+
         {/* Header Profile Card */}
         <div className="relative mb-8 pt-20">
           <div className="absolute top-0 left-0 w-full h-40 bg-gradient-to-r from-green-600 to-green-700">
             <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_center,_white_1px,_transparent_1px)] bg-[size:20px_20px]"></div>
           </div>
-          
+
           <div className="bg-white p-6 sm:p-8 border border-green-600 flex flex-col md:flex-row items-center md:items-end gap-6 relative">
             <div className="w-32 h-32 sm:w-40 sm:h-40 bg-white p-1 border border-green-600 -mt-20 md:-mt-24 overflow-hidden group">
-              <img 
-                src={app?.photo || "https://ui-avatars.com/api/?name=User&background=3AB000&color=fff"} 
-                alt="Profile" 
+              <img
+                src={app?.photo || "https://ui-avatars.com/api/?name=User&background=3AB000&color=fff"}
+                alt="Profile"
                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
               />
             </div>
-            
+
             <div className="flex-1 text-center md:text-left">
               <div className="flex flex-col md:flex-row md:items-center gap-3 mb-3">
                 <h1 className="text-4xl font-black text-gray-900 uppercase tracking-tight">
@@ -108,10 +108,10 @@ const EmployeeProfile = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
+
           {/* Main Content Areas */}
           <div className="lg:col-span-2 space-y-8">
-            
+
             {/* Personal Details */}
             <div className="bg-white p-6 sm:p-8 border border-green-600">
               <SectionHeader icon={User} title="Personal Details" />
@@ -165,7 +165,7 @@ const EmployeeProfile = () => {
 
           {/* Sidebar Area */}
           <div className="space-y-8">
-            
+
             {/* Bank Details from MOU */}
             <div className="bg-white p-6 border border-green-600 bg-gradient-to-br from-white to-gray-50">
               <SectionHeader icon={CreditCard} title="Bank Information" />
@@ -187,24 +187,24 @@ const EmployeeProfile = () => {
             <div className="bg-white p-6 border border-green-600">
               <SectionHeader icon={MapPin} title="Full Address" />
               <div className="space-y-4 text-left">
-                 <div className="p-4 bg-gray-50 border border-green-600">
-                   <p className="text-[9px] font-bold text-gray-600 uppercase mb-2">Detailed Location</p>
-                   <p className="text-sm font-bold text-gray-800 leading-relaxed">
-                     {app?.address}, Ward {app?.wardNo}, <br />
-                     {app?.panchayat}, {app?.block}, <br />
-                     {app?.district}, {app?.state} - {app?.pincode}
-                   </p>
-                 </div>
-                 <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 bg-red-50 border border-red-600 text-center">
-                      <p className="text-[8px] font-black text-red-600 uppercase mb-1">PAN NO.</p>
-                      <p className="text-xs font-black text-red-700">{app?.panNumber || app?.pan || "N/A"}</p>
-                    </div>
-                    <div className="p-3 bg-blue-50 border border-blue-600 text-center">
-                      <p className="text-[8px] font-black text-blue-600 uppercase mb-1">ADHAR VERIFIED</p>
-                      <p className="text-xs font-black text-blue-700">SUCCESS</p>
-                    </div>
-                 </div>
+                <div className="p-4 bg-gray-50 border border-green-600">
+                  <p className="text-[9px] font-bold text-gray-600 uppercase mb-2">Detailed Location</p>
+                  <p className="text-sm font-bold text-gray-800 leading-relaxed">
+                    {app?.address}, Ward {app?.wardNo}, <br />
+                    {app?.panchayat}, {app?.block}, <br />
+                    {app?.district}, {app?.state} - {app?.pincode}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 bg-red-50 border border-red-600 text-center">
+                    <p className="text-[8px] font-black text-red-600 uppercase mb-1">PAN NO.</p>
+                    <p className="text-xs font-black text-red-700">{app?.panNumber || app?.pan || "N/A"}</p>
+                  </div>
+                  <div className="p-3 bg-blue-50 border border-blue-600 text-center">
+                    <p className="text-[8px] font-black text-blue-600 uppercase mb-1">ADHAR VERIFIED</p>
+                    <p className="text-xs font-black text-blue-700">SUCCESS</p>
+                  </div>
+                </div>
               </div>
             </div>
 

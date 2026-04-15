@@ -501,7 +501,8 @@ const PanchayatManagement = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const itemsPerPage = 8;
+  const [selectedIds, setSelectedIds] = useState([]);
+  const itemsPerPage = 13;
 
   const loadData = async () => {
     setIsLoading(true);
@@ -546,6 +547,40 @@ const PanchayatManagement = () => {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (!selectedIds.length) return;
+    if (window.confirm(`Are you sure you want to delete ${selectedIds.length} panchayats?`)) {
+      setIsLoading(true);
+      try {
+        const res = await locationAPI.deletePanchayats(selectedIds);
+        if (res && !res.error) {
+          setSelectedIds([]);
+          loadData();
+        } else {
+          alert(res?.error || "Failed to delete selected panchayats");
+        }
+      } catch (err) {
+        alert("Server error");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedIds(panchayats.map(p => p._id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelect = (id) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
   const filteredData = panchayats;
   return (
     <DashboardLayout activePath="/location/panchayats">
@@ -555,16 +590,30 @@ const PanchayatManagement = () => {
         {/* ── Top Bar ── */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4 mt-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-1 w-full">
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <Filter size={16} className="text-gray-400" />
-              <select
-                value={filterState}
-                onChange={(e) => { setFilterState(e.target.value); setCurrentPage(1); }}
-                className="flex-1 sm:w-48 px-3 py-2 border border-gray-300 rounded-sm text-sm outline-none focus:ring-2 focus:ring-[#3AB000] bg-white h-10"
-              >
-                <option value="">All States</option>
-                {indianStates.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
+            <div className="flex items-center gap-2 w-full sm:w-auto bg-white border border-gray-300 rounded-sm pr-1">
+              <div className="flex items-center gap-2 px-3 py-2">
+                <Filter size={16} className="text-gray-400" />
+                <select
+                  value={filterState}
+                  onChange={(e) => { setFilterState(e.target.value); setCurrentPage(1); }}
+                  className="px-1 text-sm outline-none bg-white h-full min-w-[140px]"
+                >
+                  <option value="">All States</option>
+                  {indianStates.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              {filterState && (
+                <button
+                  onClick={() => {
+                    const stateIds = panchayats.filter(p => p.state === filterState).map(p => p._id);
+                    setSelectedIds(prev => Array.from(new Set([...prev, ...stateIds])));
+                  }}
+                  className="bg-[#3AB000]/10 hover:bg-[#3AB000] text-[#3AB000] hover:text-white text-[10px] font-black uppercase px-3 py-1.5 rounded-sm transition-all"
+                  title={`Select all panchayats from ${filterState}`}
+                >
+                  Select State
+                </button>
+              )}
             </div>
 
             <div className="flex items-center border border-gray-300 rounded overflow-hidden h-10 flex-1 w-full sm:max-w-[500px]">
@@ -585,18 +634,36 @@ const PanchayatManagement = () => {
             </div>
           </div>
 
-          <button
-            onClick={() => { setSelectedPanchayat(null); setIsModalOpen(true); }}
-            className="bg-black hover:bg-[#3AB000] text-white text-xs sm:text-sm font-medium px-4 sm:px-6 py-2.5 rounded-sm transition-colors whitespace-nowrap w-full sm:w-auto flex items-center justify-center gap-2"
-          >
-            <Plus size={16} /> Add Panchayat
-          </button>
+          <div className="flex items-center gap-2">
+            {selectedIds.length > 0 && (
+              <button
+                onClick={handleBulkDelete}
+                className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium px-4 sm:px-6 py-2.5 rounded-sm transition-colors whitespace-nowrap flex items-center justify-center gap-2 shadow-md animate-in fade-in slide-in-from-right-2"
+              >
+                <Trash2 size={16} /> Delete Selected ({selectedIds.length})
+              </button>
+            )}
+            <button
+              onClick={() => { setSelectedPanchayat(null); setIsModalOpen(true); }}
+              className="bg-black hover:bg-[#3AB000] text-white text-xs sm:text-sm font-medium px-4 sm:px-6 py-2.5 rounded-sm transition-colors whitespace-nowrap w-full sm:w-auto flex items-center justify-center gap-2"
+            >
+              <Plus size={16} /> Add Panchayat
+            </button>
+          </div>
         </div>
 
         <div className="hidden md:block bg-white rounded overflow-hidden border border-gray-200">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-[#3AB000]">
+                <th className="px-4 py-3 text-center">
+                  <input
+                    type="checkbox"
+                    checked={panchayats.length > 0 && selectedIds.length === panchayats.length}
+                    onChange={handleSelectAll}
+                    className="w-4 h-4 rounded border-gray-300 text-[#3AB000] focus:ring-[#3AB000] cursor-pointer"
+                  />
+                </th>
                 <th className="px-6 py-3 font-bold text-black text-sm text-center">S.N</th>
                 <th className="px-6 py-3 font-bold text-black text-sm text-center">State / राज्य</th>
                 <th className="px-6 py-3 font-bold text-black text-sm text-center">District / जिला</th>
@@ -612,7 +679,15 @@ const PanchayatManagement = () => {
                 </tr>
               ) : (
                 panchayats.map((p, idx) => (
-                  <tr key={p._id} className="hover:bg-[#e8f5e2] transition-colors group">
+                  <tr key={p._id} className={`${selectedIds.includes(p._id) ? 'bg-[#e8f5e2]' : 'hover:bg-[#e8f5e2]'} transition-colors group`}>
+                    <td className="px-4 py-4 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(p._id)}
+                        onChange={() => handleSelect(p._id)}
+                        className="w-4 h-4 rounded border-gray-300 text-[#3AB000] focus:ring-[#3AB000] cursor-pointer"
+                      />
+                    </td>
                     <td className="px-6 py-4 text-center text-gray-500 font-medium">{(currentPage - 1) * itemsPerPage + idx + 1}</td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-700 text-center">
                       {p.state}
@@ -653,15 +728,23 @@ const PanchayatManagement = () => {
 
         <div className="md:hidden space-y-4">
           {filteredData.map((p) => (
-            <div key={p._id} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+            <div key={p._id} className={`bg-white rounded-lg border ${selectedIds.includes(p._id) ? 'border-[#3AB000] ring-1 ring-[#3AB000]' : 'border-gray-200'} p-4 shadow-sm transition-all`}>
               <div className="flex justify-between items-start mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-green-50 rounded-lg">
-                    <Home className="w-4 h-4 text-[#3AB000]" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-800">{p.name}</h3>
-                    <p className="text-[10px] text-gray-500">{p.nameHi}</p>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(p._id)}
+                    onChange={() => handleSelect(p._id)}
+                    className="w-4 h-4 rounded border-gray-300 text-[#3AB000] focus:ring-[#3AB000] cursor-pointer"
+                  />
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-green-50 rounded-lg">
+                      <Home className="w-4 h-4 text-[#3AB000]" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-gray-800">{p.name}</h3>
+                      <p className="text-[10px] text-gray-500">{p.nameHi}</p>
+                    </div>
                   </div>
                 </div>
                 <div className="flex gap-1">

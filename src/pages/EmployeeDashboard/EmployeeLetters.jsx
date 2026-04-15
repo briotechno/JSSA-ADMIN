@@ -3,16 +3,32 @@ import DashboardLayout from "../../components/DashboardLayout";
 import { createPaperAPI } from "../../utils/api";
 import { useAuth } from "../../auth/AuthProvider";
 import logo from "../../assets/JSSAogo.png";
-import { 
-  Loader2, 
-  Download, 
-  Eye, 
-  ShieldCheck, 
-  FileText, 
-  CheckCircle2, 
+import sing from "../../assets/docs/district_manger/sing.png";
+
+import {
+  Loader2,
+  Download,
+  Eye,
+  ShieldCheck,
+  FileText,
+  CheckCircle2,
   Plus,
   CreditCard
 } from "lucide-react";
+
+// Helper to sanitize image URLs for production
+const cleanImageUrl = (url) => {
+  if (!url) return "";
+  // Direct replacement as requested by user
+  if (url.includes("localhost:3005/api")) {
+    return url.replace("http://localhost:3005/api", "https://api.jssabhiyan.com/api");
+  }
+  // If it's already a relative path, prepend the base URL
+  if (url.startsWith("/api/")) {
+    return `https://api.jssabhiyan.com${url}`;
+  }
+  return url;
+};
 
 const AuthorizationTemplate = ({ application, formData, empId, logo, templateRef }) => {
   const currentDate = new Date().toLocaleDateString();
@@ -123,7 +139,7 @@ const AuthorizationTemplate = ({ application, formData, empId, logo, templateRef
             <div className="font-black text-green-800 text-[11px] tracking-tighter mb-4 uppercase">JAN SWASTHYA SAHAYATA ABHIYAN</div>
             <div className="w-40 h-20 flex items-center justify-start border-b-2 border-green-100 mb-2">
               <img
-                src="/src/assets/docs/district_manger/sing.png"
+                src={sing}
                 alt="Authorized Signatory"
                 className="max-h-full max-w-full mix-blend-multiply opacity-90 contrast-125"
               />
@@ -159,7 +175,7 @@ const AuthorizationTemplate = ({ application, formData, empId, logo, templateRef
             <div className="bg-sky-50 shadow-[inset_0_2px_10px_rgba(0,0,0,0.05)] p-2 rounded-xl border-2 border-sky-100 mb-2 w-52 h-24 flex items-center justify-center overflow-hidden">
               {application?.signature ? (
                 <img
-                  src={application.signature}
+                  src={cleanImageUrl(application.signature)}
                   alt="Candidate Signature"
                   className="max-h-full max-w-full mix-blend-multiply transition-all grayscale contrast-125 hover:grayscale-0"
                 />
@@ -255,10 +271,10 @@ const ConsentTemplate = ({ application, formData, empId, logo, templateRef }) =>
         </div>
         <div className="flex flex-col gap-2 shrink-0">
           <div className="w-32 h-36 border-[3px] border-black p-0.5 bg-white shadow-xl rounded-sm overflow-hidden">
-            <img src={application?.photo} alt="Photo" className="w-full h-full object-cover grayscale-[20%]" />
+            <img src={cleanImageUrl(application?.photo)} alt="Photo" className="w-full h-full object-cover grayscale-[20%]" />
           </div>
           <div className="w-32 h-14 border-[3px] border-sky-300 p-1 bg-sky-50 shadow-inner rounded-sm overflow-hidden flex items-center justify-center">
-            <img src={application?.signature} alt="Sign" className="max-w-full max-h-full mix-blend-multiply transition-all grayscale contrast-125" />
+            <img src={cleanImageUrl(application?.signature)} alt="Sign" className="max-w-full max-h-full mix-blend-multiply transition-all grayscale contrast-125" />
           </div>
         </div>
       </div>
@@ -278,7 +294,7 @@ const ConsentTemplate = ({ application, formData, empId, logo, templateRef }) =>
           <div className="font-black text-xs uppercase italic mb-8 border-b-2 border-gray-100 inline-block">Received By</div>
           <div className="w-44 h-20 flex items-center justify-start mb-2">
             <img
-              src="/src/assets/docs/district_manger/sing.png"
+              src={sing}
               alt="Authorized Signatory"
               className="max-h-full max-w-full mix-blend-multiply opacity-90 contrast-125"
             />
@@ -451,7 +467,7 @@ const MOUTemplate = ({ application, formData, empId, logo, templateRef }) => {
             <div className="text-[10px] font-bold">With best regards Yours sincerely,</div>
             <div className="font-black text-green-800 text-[11px] mb-4">For Jan Swasthya Sahayata Abhiyan</div>
             <div className="w-40 h-16 flex items-center">
-              <img src="/src/assets/docs/district_manger/sing.png" alt="Sign" className="max-h-full mix-blend-multiply transition-all contrast-125" />
+              <img src={sing} alt="Sign" className="max-h-full mix-blend-multiply transition-all contrast-125" />
             </div>
             <div className="text-[9px] font-bold text-blue-800 border-2 border-blue-800 p-1 inline-block">AUTHORIZED SIGNATORY</div>
             <div className="text-[10px] space-y-1 pt-4">
@@ -463,7 +479,7 @@ const MOUTemplate = ({ application, formData, empId, logo, templateRef }) => {
           </div>
           <div className="text-right">
             <div className="w-48 h-24 mb-2 flex items-center justify-center border-b border-gray-200">
-              <img src={application?.signature} alt="Sign" className="max-w-full max-h-full mix-blend-multiply transition-all grayscale contrast-150" />
+              <img src={cleanImageUrl(application?.signature)} alt="Sign" className="max-w-full max-h-full mix-blend-multiply transition-all grayscale contrast-150" />
             </div>
             <div className="font-black text-[12px] uppercase">{application?.candidateName}</div>
             <div className="text-[9px] font-bold text-gray-400">Digitally Signed By Candidate</div>
@@ -588,7 +604,7 @@ const MOUTemplate = ({ application, formData, empId, logo, templateRef }) => {
         <div className="flex justify-between items-start mt-10 text-left">
           <div className="space-y-1">
             <div className="w-48 h-24 mb-2 flex items-center justify-center border-2 border-gray-100 bg-gray-50 rounded shadow-inner overflow-hidden">
-              <img src={application?.signature} alt="Sign" className="max-w-full max-h-full mix-blend-multiply grayscale contrast-125" />
+              <img src={cleanImageUrl(application?.signature)} alt="Sign" className="max-w-full max-h-full mix-blend-multiply grayscale contrast-125" />
             </div>
             <div className="text-[10px] space-y-1">
               <div>Name: <span className="text-gray-900 font-black uppercase underline">{application?.candidateName}</span></div>
@@ -599,7 +615,7 @@ const MOUTemplate = ({ application, formData, empId, logo, templateRef }) => {
 
           <div className="text-right space-y-1">
             <div className="w-40 h-20 flex items-center justify-end ml-auto">
-              <img src="/src/assets/docs/district_manger/sing.png" alt="Sign" className="max-h-full mix-blend-multiply transition-all contrast-125" />
+              <img src={sing} alt="Sign" className="max-h-full mix-blend-multiply transition-all contrast-125" />
             </div>
             <div className="text-[9px] font-bold text-blue-800 border-2 border-blue-800 p-1 inline-block mb-4 uppercase scale-90 origin-right">AUTHORIZED SIGNATORY</div>
             <div className="text-[10px] space-y-0.5 leading-tight font-bold text-gray-700">
@@ -646,7 +662,7 @@ const IDCardTemplate = ({ application, formData, empId, logo, templateRef }) => 
         {/* Photo Section */}
         <div className="flex-1 relative flex flex-col items-center pt-4 pb-4">
           <div className="z-20 w-32 h-36 bg-white border-[3px] border-black shadow-xl overflow-hidden rounded-sm">
-            <img src={application?.photo} alt="Identity" className="w-full h-full object-cover" />
+            <img src={cleanImageUrl(application?.photo)} alt="Identity" className="w-full h-full object-cover" />
           </div>
         </div>
 
@@ -722,7 +738,7 @@ const EmployeeLetters = () => {
   const [viewingDoc, setViewingDoc] = useState(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [selectedDocType, setSelectedDocType] = useState(null);
-  
+
   // Template refs for each document type
   const authTemplateRef = useRef(null);
   const consentTemplateRef = useRef(null);
@@ -738,10 +754,10 @@ const EmployeeLetters = () => {
           if (app) {
             setApplication(app);
             setFormData({
-               state: app.state || "N/A",
-               district: app.district || "N/A",
-               block: app.blockKhand || "N/A",
-               villageTola: app.villageTola || "N/A"
+              state: app.state || "N/A",
+              district: app.district || "N/A",
+              block: app.blockKhand || "N/A",
+              villageTola: app.villageTola || "N/A"
             });
             setEmpId(app.employeeId || app._id.slice(-6).toUpperCase());
           }
@@ -772,20 +788,20 @@ const EmployeeLetters = () => {
 
   const handleDownload = async (docType) => {
     if (isDownloading) return;
-    
+
     // Verify data is loaded
     if (!application || !formData || !empId) {
       alert('Employee data is still loading. Please wait a moment and try again.');
       return;
     }
-    
+
     setIsDownloading(true);
     setSelectedDocType(docType);
-    
+
     try {
       let templateRef;
       let fileName;
-      
+
       // Select correct template ref based on doc type
       if (docType === 'auth') {
         templateRef = authTemplateRef;
@@ -800,7 +816,7 @@ const EmployeeLetters = () => {
         templateRef = idCardTemplateRef;
         fileName = `Identity_Card_${empId}`;
       }
-      
+
       if (!templateRef?.current) {
         console.error('Template not found for type:', docType);
         console.log('Available refs:', { authTemplateRef, consentTemplateRef, mouTemplateRef, idCardTemplateRef });
@@ -809,23 +825,23 @@ const EmployeeLetters = () => {
         alert('Document is still loading. Please wait a moment and try again.');
         return;
       }
-      
+
       // Load html2pdf library
       await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js');
-      
+
       // Wait for library initialization and DOM rendering
       await new Promise(resolve => setTimeout(resolve, 800));
-      
+
       if (!window.html2pdf) {
         throw new Error('html2pdf library failed to load');
       }
-      
+
       // Verify element is still in DOM
       const element = templateRef.current;
       if (!element || !element.offsetHeight) {
         throw new Error('Template element not properly rendered');
       }
-      
+
       // Different PDF settings based on document type
       let opt;
       if (docType === 'id') {
@@ -835,16 +851,16 @@ const EmployeeLetters = () => {
           margin: 0,
           filename: `${fileName}.pdf`,
           image: { type: 'jpeg', quality: 0.99 },
-          html2canvas: { 
-            scale: 3, 
-            useCORS: true, 
-            allowTaint: true, 
-            logging: false, 
+          html2canvas: {
+            scale: 3,
+            useCORS: true,
+            allowTaint: true,
+            logging: false,
             backgroundColor: '#C5E9F9'
           },
-          jsPDF: { 
-            unit: 'mm', 
-            format: [85, 160], 
+          jsPDF: {
+            unit: 'mm',
+            format: [85, 160],
             orientation: 'portrait',
             compress: true
           }
@@ -859,11 +875,11 @@ const EmployeeLetters = () => {
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
       }
-      
+
       // Generate and save PDF
       const pdf = window.html2pdf();
       await pdf.set(opt).from(element).save();
-      
+
       setIsDownloading(false);
       setSelectedDocType(null);
     } catch (err) {
@@ -886,30 +902,30 @@ const EmployeeLetters = () => {
   }
 
   const letterCards = [
-    { 
-      type: "auth", 
-      title: "Authorization Letter", 
+    {
+      type: "auth",
+      title: "Authorization Letter",
       icon: <ShieldCheck className="w-8 h-8 text-green-600" />,
       desc: "Official authorization to represent JSSA in your district.",
       component: AuthorizationTemplate
     },
-    { 
-      type: "consent", 
-      title: "Letter of Consent", 
+    {
+      type: "consent",
+      title: "Letter of Consent",
       icon: <CheckCircle2 className="w-8 h-8 text-blue-600" />,
       desc: "Declarations and terms of service consent form.",
       component: ConsentTemplate
     },
-    { 
-      type: "mou", 
-      title: "MOU & Agreement", 
+    {
+      type: "mou",
+      title: "MOU & Agreement",
       icon: <FileText className="w-8 h-8 text-orange-600" />,
       desc: "Full employment agreement with terms and conditions.",
       component: MOUTemplate
     },
-    { 
-      type: "id", 
-      title: "Identity Card", 
+    {
+      type: "id",
+      title: "Identity Card",
       icon: <CreditCard className="w-8 h-8 text-purple-600" />,
       desc: "Official digital identity card with your photo and ID.",
       component: IDCardTemplate
@@ -934,7 +950,7 @@ const EmployeeLetters = () => {
               </div>
               <h3 className="text-lg font-black text-gray-900 mb-2 uppercase">{card.title}</h3>
               <p className="text-xs text-gray-600 mb-6 font-semibold leading-relaxed">{card.desc}</p>
-              
+
               <div className="flex gap-3 mt-auto w-full">
                 <button
                   onClick={() => setViewingDoc(card.type)}
@@ -959,7 +975,7 @@ const EmployeeLetters = () => {
                   {letterCards.find(c => c.type === viewingDoc).title}
                 </h3>
                 <div className="flex gap-2">
-                  <button 
+                  <button
                     onClick={() => handleDownload(viewingDoc)}
                     disabled={isDownloading && selectedDocType === viewingDoc}
                     className="p-2 bg-green-600 text-white hover:bg-green-700 transition-all shadow-md disabled:opacity-50 border border-green-700"
@@ -971,7 +987,7 @@ const EmployeeLetters = () => {
                       <Download size={20} />
                     )}
                   </button>
-                  <button 
+                  <button
                     onClick={() => setViewingDoc(null)}
                     className="p-2 bg-gray-300 hover:bg-gray-400 transition-all border border-gray-400"
                   >
@@ -980,17 +996,17 @@ const EmployeeLetters = () => {
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-gray-100">
-                 <div className={`mx-auto bg-white border border-gray-300 p-4 ${viewingDoc === 'id' ? 'w-fit' : 'max-w-[800px]'}`}>
-                    {ActiveTemplate && (
-                      <ActiveTemplate 
-                        application={application} 
-                        formData={formData} 
-                        empId={empId} 
-                        logo={logo}
-                        templateRef={viewingDoc === 'auth' ? authTemplateRef : viewingDoc === 'consent' ? consentTemplateRef : viewingDoc === 'mou' ? mouTemplateRef : idCardTemplateRef}
-                      />
-                    )}
-                 </div>
+                <div className={`mx-auto bg-white border border-gray-300 p-4 ${viewingDoc === 'id' ? 'w-fit' : 'max-w-[800px]'}`}>
+                  {ActiveTemplate && (
+                    <ActiveTemplate
+                      application={application}
+                      formData={formData}
+                      empId={empId}
+                      logo={logo}
+                      templateRef={viewingDoc === 'auth' ? authTemplateRef : viewingDoc === 'consent' ? consentTemplateRef : viewingDoc === 'mou' ? mouTemplateRef : idCardTemplateRef}
+                    />
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1001,31 +1017,31 @@ const EmployeeLetters = () => {
           <div>
             {application && formData && (
               <>
-                <AuthorizationTemplate 
-                  application={application} 
-                  formData={formData} 
-                  empId={empId} 
+                <AuthorizationTemplate
+                  application={application}
+                  formData={formData}
+                  empId={empId}
                   logo={logo}
                   templateRef={authTemplateRef}
                 />
-                <ConsentTemplate 
-                  application={application} 
-                  formData={formData} 
-                  empId={empId} 
+                <ConsentTemplate
+                  application={application}
+                  formData={formData}
+                  empId={empId}
                   logo={logo}
                   templateRef={consentTemplateRef}
                 />
-                <MOUTemplate 
-                  application={application} 
-                  formData={formData} 
-                  empId={empId} 
+                <MOUTemplate
+                  application={application}
+                  formData={formData}
+                  empId={empId}
                   logo={logo}
                   templateRef={mouTemplateRef}
                 />
-                <IDCardTemplate 
-                  application={application} 
-                  formData={formData} 
-                  empId={empId} 
+                <IDCardTemplate
+                  application={application}
+                  formData={formData}
+                  empId={empId}
                   logo={logo}
                   templateRef={idCardTemplateRef}
                 />

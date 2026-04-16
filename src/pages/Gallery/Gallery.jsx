@@ -344,11 +344,10 @@ const Gallery = () => {
                   <div className="absolute top-2 right-2 flex gap-2">
                     <button
                       onClick={() => handleToggleActive(image)}
-                      className={`p-1.5 sm:p-2 rounded-full text-xs sm:text-sm ${
-                        image.isActive
+                      className={`p-1.5 sm:p-2 rounded-full text-xs sm:text-sm ${image.isActive
                           ? "bg-green-500 text-white"
                           : "bg-gray-500 text-white"
-                      }`}
+                        }`}
                       title={image.isActive ? "Deactivate" : "Activate"}
                     >
                       {image.isActive ? "✓" : "✗"}

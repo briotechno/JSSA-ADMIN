@@ -39,6 +39,7 @@ import Notifications from "./pages/Notifications/Notifications";
 import Notice from "./pages/Notice/Notice.jsx";
 import BlockManagement from "./pages/Admin/BlockManagement.jsx";
 import PanchayatManagement from "./pages/Admin/PanchayatManagement.jsx";
+import LocationManagement from "./pages/Admin/LocationManagement.jsx";
 import WhatsAppTest from "./pages/Admin/WhatsAppTest.jsx";
 import Logout from "./pages/Logout";
 
@@ -216,18 +217,10 @@ function App() {
               }
             />
             <Route
-              path="/admin/location/block"
+              path="/admin/location-management"
               element={
                 <RequireRole allow={["admin"]}>
-                  <BlockManagement />
-                </RequireRole>
-              }
-            />
-            <Route
-              path="/admin/location/panchayat"
-              element={
-                <RequireRole allow={["admin"]}>
-                  <PanchayatManagement />
+                  <LocationManagement />
                 </RequireRole>
               }
             />

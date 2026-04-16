@@ -849,6 +849,12 @@ export const locationAPI = {
       body: JSON.stringify({ ids }),
     });
   },
+  bulkSyncLocations: async (data) => {
+    return apiRequest("/location/sync-bulk", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
 };
 
 // Combined API object

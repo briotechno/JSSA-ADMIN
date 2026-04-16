@@ -20,6 +20,7 @@ import {
   BookOpen,
   Calendar,
   Send,
+  MapPin,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 
@@ -164,11 +165,8 @@ const Sidebar = () => {
         },
         {
           name: "Location Management",
-          icon: Settings,
-          children: [
-            { name: "Block", icon: FileText, path: "/admin/location/block" },
-            { name: "Gram Panchayat", icon: FileText, path: "/admin/location/panchayat" },
-          ],
+          icon: MapPin,
+          path: "/admin/location-management"
         },
         // {
         //   name: "Settings",

@@ -156,7 +156,7 @@ const MOUForm = () => {
     const mapping = {
       // Countries
       "India": "India / भारत",
-      
+
       // States
       "Bihar": "Bihar / बिहार",
       "Uttar Pradesh": "Uttar Pradesh / उत्तर प्रदेश",
@@ -181,7 +181,7 @@ const MOUForm = () => {
       "Andhra Pradesh": "Andhra Pradesh / आंध्र प्रदेश",
       "Telangana": "Telangana / तेलंगाना",
       "Goa": "Goa / गोवा",
-      
+
       // Districts (Sample common ones)
       "Patna": "Patna / पटना",
       "Gaya": "Gaya / गया",
@@ -224,7 +224,7 @@ const MOUForm = () => {
       "Supaul": "Supaul / सुपौल",
       "Vaishali": "Vaishali / वैशाली",
       "West Champaran": "West Champaran / पश्चिम चंपारण",
-      
+
       // Additional States & Districts from JSON
       "Andhra Pradesh": "Andhra Pradesh / आंध्र प्रदेश",
       "Arunachal Pradesh": "Arunachal Pradesh / अरुणाचल प्रदेश",
@@ -561,7 +561,7 @@ const MOUForm = () => {
         let blockList = [];
         if (Array.isArray(res)) blockList = res;
         else if (res.data) blockList = res.data;
-        
+
         // Map objects to bilingual strings for selection
         setBlocks(blockList.map(b => ({
           id: b._id,
@@ -1481,14 +1481,14 @@ const MOUForm = () => {
             </div>
 
             <div className="flex gap-4 items-center pl-0">
-              <input 
-                type="checkbox" 
-                id="docVerify" 
+              <input
+                type="checkbox"
+                id="docVerify"
                 className="w-5 h-5 accent-green-600 shrink-0 cursor-pointer"
                 checked={docsVerified}
                 onChange={(e) => setDocsVerified(e.target.checked)}
               />
-              <label 
+              <label
                 htmlFor="docVerify"
                 className="text-[#0aca00] font-bold underline hover:text-green-800 flex items-center gap-2 transition-all cursor-pointer select-none text-sm"
               >

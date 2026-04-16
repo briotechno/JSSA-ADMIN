@@ -150,6 +150,10 @@ export const authAPI = {
       body: JSON.stringify({ email, otp, newPassword }),
     });
   },
+
+  getMe: async () => {
+    return apiRequest("/auth/me", { method: "GET" });
+  },
 };
 
 /**

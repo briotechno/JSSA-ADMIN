@@ -2911,6 +2911,8 @@ function CreateEditView({
   const [studentEndDate, setStudentEndDate] = useState("");
   const [localStudentSearch, setLocalStudentSearch] = useState("");
   const [debouncedStudentSearch, setDebouncedStudentSearch] = useState("");
+  const [selectionMode, setSelectionMode] = useState("manual"); // "manual" or "all-paid"
+  const [deselectedIds, setDeselectedIds] = useState(new Set());
   const [isTitleDropdownOpen, setIsTitleDropdownOpen] = useState(false);
   const [titleSearch, setTitleSearch] = useState("");
   const titleDropdownRef = useRef(null);
@@ -3035,6 +3037,15 @@ function CreateEditView({
 
   const toggleStudent = (student) => {
     const studentId = typeof student === "object" ? student._id : student;
+    if (selectionMode === "all-paid") {
+      setDeselectedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(studentId)) next.delete(studentId);
+        else next.add(studentId);
+        return next;
+      });
+      return;
+    }
     setFormData((prev) => {
       const selected = prev.assignedStudents || [];
       const exists = selected.some(
@@ -3053,34 +3064,10 @@ function CreateEditView({
 
   const selectAllAcrossPages = async () => {
     if (!formData.title) return;
-    setIsSelectingAll(true);
-    try {
-      const posting = postings.find((p) => {
-        const en = String(p?.post?.en || "").trim();
-        return (
-          en === formData.title.trim() ||
-          String(p?.title || "").trim() === formData.title.trim()
-        );
-      });
-      const params = {
-        limit: 0,
-        paymentStatus: "paid",
-        minimal: "true",
-        search: debouncedStudentSearch,
-      };
-      if (posting?._id) params.jobPostingId = posting._id;
-      if (studentStartDate) params.startDate = studentStartDate;
-      if (studentEndDate) params.endDate = studentEndDate;
-      const res = await applicationsAPI.getAll(params);
-      if (res?.success) {
-        const allIds = (res.data?.applications || []).map((a) => a._id);
-        setFormData((p) => ({ ...p, assignedStudents: allIds }));
-      }
-    } catch {
-      /* ignore */
-    } finally {
-      setIsSelectingAll(false);
-    }
+    // Logical Selection: Switch mode instead of fetching thousands of IDs instantly
+    setSelectionMode("all-paid");
+    setDeselectedIds(new Set());
+    setFormData((p) => ({ ...p, assignedStudents: [] }));
   };
 
   const qbDifficulties = useMemo(
@@ -3168,12 +3155,53 @@ function CreateEditView({
       (c) => String(c.questionId) === String(qId),
     );
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.title || !formData.duration) {
       alert("Please fill in all required fields.");
       return;
     }
-    onSave({ ...formData });
+
+    let finalForm = { ...formData };
+
+    // If All Paid mode was active, generate the full list now (at the very end)
+    if (selectionMode === "all-paid") {
+      setIsSelectingAll(true);
+      try {
+        const posting = postings.find((p) => {
+          const en = String(p?.post?.en || "").trim();
+          return (
+            en === formData.title.trim() ||
+            String(p?.title || "").trim() === formData.title.trim()
+          );
+        });
+        const params = {
+          limit: 0,
+          paymentStatus: "paid",
+          minimal: "true",
+          search: debouncedStudentSearch,
+        };
+        if (posting?._id) params.jobPostingId = posting._id;
+        if (studentStartDate) params.startDate = studentStartDate;
+        if (studentEndDate) params.endDate = studentEndDate;
+
+        const res = await applicationsAPI.getAll(params);
+        if (res?.success) {
+          const allIds = (res.data?.applications || [])
+            .map((a) => a._id)
+            .filter((id) => !deselectedIds.has(id));
+          finalForm.assignedStudents = allIds;
+        }
+      } catch (err) {
+        console.error("Failed to generate complete student list:", err);
+        alert("Error generating student list. Please try again.");
+        setIsSelectingAll(false);
+        return;
+      } finally {
+        setIsSelectingAll(false);
+      }
+    }
+
+    onSave(finalForm);
   };
 
   const tabs = [
@@ -3480,7 +3508,11 @@ function CreateEditView({
           {activeTab === "applicants" && (
             <div className="bg-white border border-gray-200 rounded p-6 space-y-4">
               <SelectionProgressBar
-                selected={formData.assignedStudents?.length || 0}
+                selected={
+                  selectionMode === "all-paid"
+                    ? Math.max(0, sTotalItems - deselectedIds.size)
+                    : formData.assignedStudents?.length || 0
+                }
                 total={sTotalItems}
               />
 
@@ -3511,9 +3543,11 @@ function CreateEditView({
                     {isSelectingAll ? "Processing..." : "Select All Paid"}
                   </button>
                   <button
-                    onClick={() =>
-                      setFormData((p) => ({ ...p, assignedStudents: [] }))
-                    }
+                    onClick={() => {
+                      setSelectionMode("manual");
+                      setDeselectedIds(new Set());
+                      setFormData((p) => ({ ...p, assignedStudents: [] }));
+                    }}
                     className="px-4 py-2 border border-red-200 text-red-600 rounded-sm text-xs font-medium hover:bg-red-50 transition-colors whitespace-nowrap"
                   >
                     Clear All
@@ -3582,10 +3616,13 @@ function CreateEditView({
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {applicants.map((app) => {
-                        const isSelected = formData.assignedStudents?.some(
-                          (s) =>
-                            (typeof s === "object" ? s._id : s) === app._id,
-                        );
+                        const isSelected =
+                          selectionMode === "all-paid"
+                            ? !deselectedIds.has(app._id)
+                            : formData.assignedStudents?.some(
+                              (s) =>
+                                (typeof s === "object" ? s._id : s) === app._id,
+                            );
                         return (
                           <tr
                             key={app._id}

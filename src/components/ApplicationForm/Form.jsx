@@ -326,7 +326,13 @@ const AddApplicationModal = ({
       setError(null);
 
       // Create Razorpay order
-      const orderResponse = await paymentsAPI.createOrder(jobPostingId, gender, category);
+      const orderResponse = await paymentsAPI.createOrder(
+        jobPostingId, 
+        gender, 
+        category, 
+        applicationId,
+        null // Token from localStorage
+      );
       
       if (!orderResponse.success || !orderResponse.data) {
         throw new Error(orderResponse.error || "Failed to create payment order");
@@ -342,6 +348,10 @@ const AddApplicationModal = ({
         name: "JSSA Application Fee",
         description: `Application Fee - ₹${amountInRupees}`,
         order_id: orderId,
+        notes: {
+          applicationId: applicationId,
+          jobPostingId: jobPostingId,
+        },
         handler: async function (response) {
           try {
             // Verify payment
@@ -349,7 +359,8 @@ const AddApplicationModal = ({
               response.razorpay_order_id,
               response.razorpay_payment_id,
               response.razorpay_signature,
-              applicationId
+              applicationId,
+              null // Token from localStorage
             );
 
             if (verifyResponse.success) {

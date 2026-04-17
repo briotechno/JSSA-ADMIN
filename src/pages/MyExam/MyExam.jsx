@@ -15,6 +15,7 @@ import {
   Languages,
   Loader2,
   Monitor,
+  Phone,
   PlayCircle,
   Trophy,
   XCircle,
@@ -1188,12 +1189,14 @@ export default function MyExam() {
                                         {t.downloadCertificate}
                                       </button>
                                       {isMOUVisible(exam) && (
-                                        <button
-                                          onClick={() => navigate(`/mou/process/${exam.id}`)}
-                                          className="flex items-center gap-1.5 px-4 py-2 bg-blue-700 text-white rounded-md text-sm font-medium hover:bg-blue-800 transition shadow-sm"
-                                        >
-                                          {t.mou}
-                                        </button>
+                                        <>
+                                          <button
+                                            onClick={() => navigate(`/mou/process/${exam.id}`)}
+                                            className="flex items-center gap-1.5 px-4 py-2 bg-blue-700 text-white rounded-md text-sm font-medium hover:bg-blue-800 transition shadow-sm"
+                                          >
+                                            {t.mou}
+                                          </button>
+                                        </>
                                       )}
                                     </>
                                   )}
@@ -1204,6 +1207,26 @@ export default function MyExam() {
                               </span>
                             )}
                           </div>
+
+                          {(!exam.resultDate || new Date() >= new Date(exam.resultDate)) &&
+                            ((exam.userAttempt?.score || 0) >= (exam.passingMarks || 0)) &&
+                            isMOUVisible(exam) && (
+                              <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+                                <div className="flex flex-col">
+                                  <p className="text-[12px] font-semibold text-black uppercase leading-none tracking-tight">MOU Support Contact Number</p>
+                                  <p className="text-[12px] font-semibold text-black uppercase mt-1 tracking-tight">MOU सहायता संपर्क नंबर</p>
+                                </div>
+                                <a
+                                  href="tel:+919289397569"
+                                  className="flex items-center gap-1.5 text-[#3AB000] font-black text-sm hover:text-[#2d8a00] transition-colors group"
+                                >
+                                  <div className="w-7 h-7 bg-green-50 rounded-full flex items-center justify-center group-hover:bg-green-100 transition-colors shadow-sm">
+                                    <Phone size={14} className="fill-[#3AB000] text-[#3AB000]" />
+                                  </div>
+                                  <span>+91 92893 97569</span>
+                                </a>
+                              </div>
+                            )}
                         </div>
                       ))}
                     </div>
@@ -1273,24 +1296,36 @@ export default function MyExam() {
                   </p>
                 </div>
                 {isPassed && (
-                  <div className="flex flex-col gap-2">
-                    <button
-                      onClick={() => handleDownloadCertificate(selectedExam)}
-                      disabled={isDownloadingCert && selectedCertTx?.id === selectedExam.id}
-                      className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition shadow disabled:opacity-50"
-                    >
-                      {isDownloadingCert && selectedCertTx?.id === selectedExam.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-                      {t.downloadCertificate}
-                    </button>
-                    {isMOUVisible(selectedExam) && (
+                  <>
+                    <div className="flex flex-col gap-2">
                       <button
-                        onClick={() => navigate(`/mou/process/${selectedExam.id}`)}
-                        className="w-full flex items-center justify-center gap-2 py-3 bg-blue-700 text-white rounded-xl font-bold hover:bg-blue-800 transition shadow-md"
+                        onClick={() => handleDownloadCertificate(selectedExam)}
+                        disabled={isDownloadingCert && selectedCertTx?.id === selectedExam.id}
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition shadow disabled:opacity-50"
                       >
-                        {t.mou}
+                        {isDownloadingCert && selectedCertTx?.id === selectedExam.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+                        {t.downloadCertificate}
                       </button>
+                    </div>
+
+                    {isMOUVisible(selectedExam) && (
+                      <div className="mt-6 pt-6 border-t border-gray-100 flex flex-col items-center gap-3">
+                        <div className="text-center">
+                          <p className="text-[10px] font-semibold text-black uppercase tracking-widest">MOU Support Contact Number</p>
+                          <p className="text-[10px] font-semibold text-black uppercase mt-1 tracking-widest">MOU सहायता संपर्क नंबर</p>
+                        </div>
+                        <a
+                          href="tel:+919289397569"
+                          className="flex items-center gap-2 text-[#3AB000] font-black text-lg hover:scale-105 transition-transform"
+                        >
+                          <div className="w-10 h-10 bg-green-50 rounded-full flex items-center justify-center shadow-sm">
+                            <Phone size={20} className="fill-[#3AB000] text-[#3AB000]" />
+                          </div>
+                          <span>+91 92893 97569</span>
+                        </a>
+                      </div>
                     )}
-                  </div>
+                  </>
                 )}
               </div>
             ) : (

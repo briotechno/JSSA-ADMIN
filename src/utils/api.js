@@ -34,15 +34,19 @@ function getToken() {
  * Make API request with authentication
  */
 async function apiRequest(endpoint, options = {}) {
-  const token = getToken();
+  // Use explicit token from options or fall back to localStorage
+  const token = options.token || getToken();
   const url = `${API_BASE_URL}${endpoint}`;
 
+  // Clean the options object so we don't pass the custom token to fetch
+  const { token: _, ...fetchOptions } = options;
+
   const config = {
-    ...options,
+    ...fetchOptions,
     headers: {
       "Content-Type": "application/json",
       ...(token && { Authorization: `Bearer ${token}` }),
-      ...options.headers,
+      ...fetchOptions.headers,
     },
   };
 
@@ -428,14 +432,15 @@ export const scrollerAPI = {
  * Payments API
  */
 export const paymentsAPI = {
-  createOrder: async (jobPostingId, gender, category) => {
+  createOrder: async (jobPostingId, gender, category, applicationId, token = null) => {
     return apiRequest("/payments/create-order", {
       method: "POST",
-      body: JSON.stringify({ jobPostingId, gender, category }),
+      body: JSON.stringify({ jobPostingId, gender, category, applicationId }),
+      token,
     });
   },
 
-  verifyPayment: async (orderId, paymentId, signature, applicationId) => {
+  verifyPayment: async (orderId, paymentId, signature, applicationId, token = null) => {
     return apiRequest("/payments/verify", {
       method: "POST",
       body: JSON.stringify({
@@ -444,6 +449,7 @@ export const paymentsAPI = {
         razorpay_signature: signature,
         applicationId: applicationId,
       }),
+      token,
     });
   },
 

@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../../components/DashboardLayout";
 import { createPaperAPI } from "../../utils/api";
-import { UserPlus, Search, ShieldAlert } from "lucide-react";
+import { UserPlus, Search, ShieldAlert, ChevronDown, Check, X } from "lucide-react";
+import { jobPostingsAPI } from "../../utils/api";
 
 // Same UI constants as ReExam
 const StatusBadge = ({ status }) => {
@@ -56,6 +57,78 @@ const Unassigned = () => {
   const [appliedFrom, setAppliedFrom] = useState("");
   const [appliedTo, setAppliedTo] = useState("");
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
+  const [selectionMode, setSelectionMode] = useState("manual"); // "manual" or "all-paid"
+  const [deselectedIds, setDeselectedIds] = useState(new Set());
+  
+  // Job Posting Filter states
+  const [postings, setPostings] = useState([]);
+  const [selectedPostingId, setSelectedPostingId] = useState("");
+  const [selectedPostingTitle, setSelectedPostingTitle] = useState("");
+  const [isTitleDropdownOpen, setIsTitleDropdownOpen] = useState(false);
+  const [titleSearch, setTitleSearch] = useState("");
+  const titleDropdownRef = useRef(null);
+
+  // Fetch job postings on mount
+  useEffect(() => {
+    const fetchPostings = async () => {
+      try {
+        const res = await jobPostingsAPI.getAll();
+        if (res.success) {
+          setPostings(res.data.postings || []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch job postings:", err);
+      }
+    };
+    fetchPostings();
+  }, []);
+
+  // Handle click outside for dropdown
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (titleDropdownRef.current && !titleDropdownRef.current.contains(e.target)) {
+        setIsTitleDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const titleOptions = useMemo(() => {
+    // Prioritize the full descriptive title including Advt No and Bilingual text
+    return postings.map((p) => {
+      return p.title || (typeof p.post === "object" ? p.post.en : p.post) || p.advtNo;
+    });
+  }, [postings]);
+
+  const isVacancyOpen = (lastDate) => {
+    if (!lastDate) return true;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const lDate = new Date(lastDate);
+    lDate.setHours(0, 0, 0, 0);
+    return today <= lDate;
+  };
+
+  const filteredTitles = useMemo(() => {
+    const q = titleSearch.toLowerCase().trim();
+    return titleOptions
+      .filter((opt) => opt.toLowerCase().includes(q))
+      .sort((a, b) => {
+        const score = (title) => {
+          const posting = postings.find((p) => {
+            const en = typeof p.post === "object" ? p.post.en : p.post;
+            return en === title || p.title === title || p.advtNo === title;
+          });
+          return posting
+            ? posting.status !== "Inactive" && isVacancyOpen(posting.lastDate)
+              ? 1
+              : 0
+            : 1;
+        };
+        return score(b) - score(a);
+      });
+  }, [titleOptions, titleSearch, postings]);
 
   const loadUnassigned = async (page = 1) => {
     setIsLoading(true);
@@ -66,6 +139,7 @@ const Unassigned = () => {
         search: searchQuery,
         appliedFrom,
         appliedTo,
+        jobPostingId: selectedPostingId
       });
       if (res.success) {
         setStudents(
@@ -89,47 +163,105 @@ const Unassigned = () => {
       loadUnassigned(1);
     }, 500);
     return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery, appliedFrom, appliedTo]);
+  }, [searchQuery, appliedFrom, appliedTo, selectedPostingId]);
 
   const toggleSelectAll = () => {
+    // Standard Select All only selects current page items in manual mode
     if (selectedStudentIds.length === students.length && students.length > 0) {
       setSelectedStudentIds([]);
     } else {
       setSelectedStudentIds(students.map((s) => s._id));
+      setSelectionMode("manual");
     }
   };
 
   const toggleStudentSelection = (id) => {
+    if (selectionMode === "all-paid") {
+      setDeselectedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      });
+      return;
+    }
     setSelectedStudentIds((prev) =>
       prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
     );
   };
 
-  const handlePlanAssignment = () => {
-    if (selectedStudentIds.length === 0) {
+  const selectAllPaidAcrossPages = () => {
+    if (selectionMode === "all-paid") {
+      setSelectionMode("manual");
+      setDeselectedIds(new Set());
+      setSelectedStudentIds([]);
+    } else {
+      setSelectionMode("all-paid");
+      setDeselectedIds(new Set());
+      setSelectedStudentIds([]);
+    }
+  };
+
+  const isStudentSelected = (id) => {
+    if (selectionMode === "all-paid") {
+      return !deselectedIds.has(id);
+    }
+    return selectedStudentIds.includes(id);
+  };
+
+  const selectionCount = useMemo(() => {
+    if (selectionMode === "all-paid") {
+      return Math.max(0, (pagination?.total || 0) - deselectedIds.size);
+    }
+    return selectedStudentIds.length;
+  }, [selectionMode, deselectedIds, selectedStudentIds, pagination]);
+
+  const handlePlanAssignment = async () => {
+    if (selectionCount === 0) {
       alert("Please select at least one candidate to assign.");
       return;
     }
     if (
       !window.confirm(
-        `Create a new Event for these ${selectedStudentIds.length} selected candidate(s)? You will be taken to the 'Create Paper' section to finalize it.`
+        `Create a new Event for these ${selectionCount} selected candidate(s)? You will be taken to the 'Create Paper' section to finalize it.`
       )
     )
       return;
 
     setIsActionLoading(true);
     try {
+      let finalIds = [...selectedStudentIds];
+
+      if (selectionMode === "all-paid") {
+        // Fetch ALL IDs based on filters
+        const res = await createPaperAPI.getGlobalUnassigned({
+          limit: 0, // Get all
+          search: searchQuery,
+          appliedFrom,
+          appliedTo,
+          jobPostingId: selectedPostingId,
+        });
+
+        if (res.success) {
+          finalIds = (res.data.students || [])
+            .map((s) => s._id)
+            .filter((id) => !deselectedIds.has(id));
+        } else {
+          throw new Error("Failed to fetch complete list of students.");
+        }
+      }
+
       navigate("/create-paper", {
         state: {
           reExamData: {
             title: `New Assignment Event`,
-            assignedStudents: selectedStudentIds,
+            assignedStudents: finalIds,
             status: "draft",
           },
         },
       });
-    } catch {
-      alert("Failed to plan assignment.");
+    } catch (err) {
+      alert(err.message || "Failed to plan assignment.");
     } finally {
       setIsActionLoading(false);
     }
@@ -178,15 +310,127 @@ const Unassigned = () => {
 
             <button
               onClick={handlePlanAssignment}
-              disabled={isActionLoading || selectedStudentIds.length === 0}
+              disabled={isActionLoading || selectionCount === 0}
               className="bg-black hover:bg-[#3AB000] disabled:opacity-50 text-white text-xs sm:text-sm font-medium px-4 sm:px-6 py-2.5 rounded-sm transition-colors whitespace-nowrap w-full sm:w-auto flex items-center justify-center gap-1.5"
             >
               <UserPlus size={14} />
-              Assign Selected ({selectedStudentIds.length})
+              Assign Selected ({selectionCount})
             </button>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 mb-4 items-end">
+            <div className="lg:col-span-2 relative" ref={titleDropdownRef}>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+                Filter by Post / Event Title
+              </label>
+              <div
+                onClick={() => setIsTitleDropdownOpen(!isTitleDropdownOpen)}
+                className={`w-full px-3 py-2.5 border border-gray-300 rounded text-sm bg-white flex items-center justify-between cursor-pointer transition-all ${isTitleDropdownOpen ? "ring-2 ring-[#3AB000] border-[#3AB000]" : ""}`}
+              >
+                <div className="flex flex-col truncate flex-1 leading-tight">
+                  <span className={`truncate text-xs font-bold text-gray-400 uppercase tracking-tighter`}>
+                    Selected Post Plan
+                  </span>
+                  <span className={`truncate ${!selectedPostingTitle ? "text-gray-400" : "text-[#2d8a00] font-black"}`}>
+                    {selectedPostingTitle || "Select Job Posting to filter"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {selectedPostingTitle && (
+                    <X 
+                      size={14} 
+                      className="text-gray-400 hover:text-red-500" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedPostingId("");
+                        setSelectedPostingTitle("");
+                      }} 
+                    />
+                  )}
+                  <ChevronDown
+                    size={16}
+                    className={`text-gray-400 transition-transform ${isTitleDropdownOpen ? "rotate-180" : ""}`}
+                  />
+                </div>
+              </div>
+
+              {isTitleDropdownOpen && (
+                <div className="absolute top-full left-0 right-0 z-[100] mt-1 bg-white border border-gray-200 rounded shadow-xl flex flex-col max-h-72 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="p-2 border-b border-gray-100 bg-gray-50">
+                    <div className="relative">
+                      <Search
+                        size={14}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                      />
+                      <input
+                        type="text"
+                        autoFocus
+                        value={titleSearch}
+                        onChange={(e) => setTitleSearch(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        placeholder="Search titles..."
+                        className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-[#3AB000] outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div className="overflow-y-auto flex-1 custom-scrollbar">
+                    <div
+                      onClick={() => {
+                        setSelectedPostingId("");
+                        setSelectedPostingTitle("");
+                        setIsTitleDropdownOpen(false);
+                        setTitleSearch("");
+                      }}
+                      className={`px-4 py-3 text-sm cursor-pointer hover:bg-[#e8f5e2] transition-colors border-b border-gray-50 flex items-center justify-between (!selectedPostingId ? "bg-[#e8f5e2] text-[#3AB000] font-semibold" : "text-gray-700")`}
+                    >
+                      <span className="font-medium">All Posts</span>
+                      {!selectedPostingId && <Check size={14} className="text-[#3AB000]" />}
+                    </div>
+                    {filteredTitles.length === 0 ? (
+                      <div className="px-4 py-6 text-sm text-gray-400 text-center">
+                        No positions found.
+                      </div>
+                    ) : (
+                      filteredTitles.map((opt) => {
+                        const posting = postings.find((p) => {
+                          const en = typeof p.post === "object" ? p.post.en : p.post;
+                          return en === opt || p.title === opt || p.advtNo === opt;
+                        });
+                        const isActive = posting
+                          ? posting.status !== "Inactive" && isVacancyOpen(posting.lastDate)
+                          : true;
+                        
+                        const isSelected = selectedPostingId === posting?._id;
+
+                        return (
+                          <div
+                            key={opt}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedPostingId(posting?._id || "");
+                              setSelectedPostingTitle(opt);
+                              setIsTitleDropdownOpen(false);
+                              setTitleSearch("");
+                            }}
+                            className={`px-4 py-3 text-sm cursor-pointer hover:bg-[#e8f5e2] transition-colors flex items-center justify-between gap-3 ${isSelected ? "bg-[#e8f5e2] text-[#3AB000] font-semibold" : "text-gray-700 font-medium"}`}
+                          >
+                            <span className="truncate flex-1">{opt}</span>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded ${isActive ? "bg-green-100 text-[#3AB000]" : "bg-red-100 text-red-500"}`}
+                              >
+                                {isActive ? "Active" : "Inactive"}
+                              </span>
+                              {isSelected && <Check size={14} className="text-[#3AB000]" />}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">
                 Applied From
@@ -209,6 +453,23 @@ const Unassigned = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-[#3AB000] focus:border-[#3AB000] outline-none transition-all"
               />
             </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">
+                Quick Action
+              </label>
+              <button
+                onClick={selectAllPaidAcrossPages}
+                className={`w-full px-3 py-2 border rounded text-xs font-bold uppercase tracking-wider transition-all h-[38px] ${selectionMode === "all-paid" ? "bg-[#3AB000] text-white border-[#3AB000]" : "bg-white text-gray-700 border-gray-300 hover:border-[#3AB000] hover:text-[#3AB000]"}`}
+              >
+                {selectionMode === "all-paid" ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Check size={14} /> All Paid Selected
+                  </span>
+                ) : (
+                  "Select All Paid"
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Desktop Table */}
@@ -218,15 +479,7 @@ const Unassigned = () => {
                 <thead>
                   <tr className="bg-[#3AB000]">
                     <th className="px-4 py-3 text-center font-bold text-black text-sm w-12">
-                      <input
-                        type="checkbox"
-                        checked={
-                          students.length > 0 &&
-                          selectedStudentIds.length === students.length
-                        }
-                        onChange={toggleSelectAll}
-                        className="w-4 h-4 rounded border-gray-300 accent-black"
-                      />
+                      {/* Global checkbox removed as per request. Row checkboxes remain. */}
                     </th>
                     <th className="px-4 py-3 text-center font-bold text-black text-sm whitespace-nowrap">
                       S.N
@@ -263,7 +516,7 @@ const Unassigned = () => {
                         <td className="px-4 py-4 text-center">
                           <input
                             type="checkbox"
-                            checked={selectedStudentIds.includes(student._id)}
+                            checked={isStudentSelected(student._id)}
                             onChange={() => toggleStudentSelection(student._id)}
                             className="w-4 h-4 rounded border-gray-300 accent-[#3AB000]"
                           />
@@ -317,7 +570,7 @@ const Unassigned = () => {
                     <div className="flex items-center gap-2 flex-1">
                       <input
                         type="checkbox"
-                        checked={selectedStudentIds.includes(student._id)}
+                        checked={isStudentSelected(student._id)}
                         onChange={() => toggleStudentSelection(student._id)}
                         className="w-4 h-4 rounded border-gray-300 accent-[#3AB000] flex-shrink-0"
                       />

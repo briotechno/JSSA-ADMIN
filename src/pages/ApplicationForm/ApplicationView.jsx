@@ -29,7 +29,7 @@ const ApplicationView = () => {
   const [error, setError] = useState(null);
   const [downloadingPDF, setDownloadingPDF] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
-
+  console.log(jobPosting)
   const normalizePaymentStatus = (status) =>
     String(status || "pending").toLowerCase();
 
@@ -82,7 +82,7 @@ const ApplicationView = () => {
             jobPostingId: getPostingId(app.jobPostingId),
             resolvedJobPostingId: getPostingId(app.resolvedJobPostingId),
           });
-          
+
           // Fetch job posting details if available
           const postingId =
             getPostingId(app.jobPostingId) || getPostingId(app.resolvedJobPostingId);
@@ -124,19 +124,37 @@ const ApplicationView = () => {
     });
   };
 
+  const urlToBase64 = async (url) => {
+    if (!url || url.startsWith("data:")) return url;
+    try {
+      // Force https to avoid 301 redirects which can break CORS preflight
+      const secureUrl = url.replace(/^http:\/\//i, 'https://');
+      const res = await fetch(secureUrl, { mode: "cors" });
+      const blob = await res.blob();
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      });
+    } catch (err) {
+      console.error("Base64 conversion failed:", err);
+      return url;
+    }
+  };
+
   const downloadApplicationPDF = async () => {
     if (!application) return;
-    
+
     setDownloadingPDF(true);
     try {
       if (!window.html2canvas)
-      await loadScript(
+        await loadScript(
           "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",
-      );
+        );
       if (!window.jspdf)
-      await loadScript(
+        await loadScript(
           "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
-      );
+        );
       await new Promise((resolve) => setTimeout(resolve, 500));
       const container = document.getElementById("application-slip-pdf");
       if (!container || !window.html2canvas || !window.jspdf) {
@@ -145,50 +163,36 @@ const ApplicationView = () => {
         );
         return;
       }
-      
+
       const originalOverflow = container.style.overflow;
       const originalMaxHeight = container.style.maxHeight;
       container.style.overflow = "visible";
       container.style.maxHeight = "none";
       container.style.height = "auto";
+
       const images = container.querySelectorAll("img");
-      // Wait for all images to load completely
+
+      // Convert all images to Base64 first
+      await Promise.all(
+        Array.from(images).map(async (img) => {
+          if (img.src && !img.src.startsWith("data:")) {
+            const base64 = await urlToBase64(img.src);
+            img.src = base64;
+          }
+        })
+      );
+
+      // Wait for all newly set base64 images to load
       await Promise.all(
         Array.from(images).map((img) => {
-          // If image is already loaded and has dimensions, resolve immediately
-          if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
-            return Promise.resolve();
-          }
-          // Otherwise wait for load
+          if (img.complete) return Promise.resolve();
           return new Promise((resolve) => {
-            const timeout = setTimeout(() => {
-              console.log("Image load timeout:", img.src.substring(0, 50));
-              resolve();
-            }, 5000);
-            img.onload = () => {
-              clearTimeout(timeout);
-              // Double check dimensions after load
-              if (img.naturalWidth > 0 && img.naturalHeight > 0) {
-                resolve();
-              } else {
-                setTimeout(resolve, 100);
-              }
-            };
-            img.onerror = () => {
-              clearTimeout(timeout);
-              console.error("Image failed to load:", img.src.substring(0, 50));
-              resolve();
-            };
-            // Force reload if src is set but not loaded
-            if (img.src && !img.complete) {
-              const currentSrc = img.src;
-              img.src = "";
-              img.src = currentSrc;
-            }
+            img.onload = resolve;
+            img.onerror = resolve;
           });
         }),
       );
-      // Additional wait to ensure images are rendered
+
       await new Promise((resolve) => setTimeout(resolve, 500));
       const fullHeight = Math.max(
         container.scrollHeight,
@@ -200,13 +204,13 @@ const ApplicationView = () => {
         container.offsetWidth,
         container.clientWidth,
       );
-      // For base64 images, use allowTaint: false and useCORS: false
+
       const canvas = await window.html2canvas(container, {
         scale: 2.5,
-        useCORS: false, // Base64 images don't need CORS
+        useCORS: false,
         logging: false,
         backgroundColor: "#ffffff",
-        allowTaint: false, // Set to false for base64 images
+        allowTaint: false,
         width: fullWidth,
         height: fullHeight,
         windowWidth: fullWidth,
@@ -214,14 +218,14 @@ const ApplicationView = () => {
         scrollX: 0,
         scrollY: 0,
         removeContainer: false,
-        imageTimeout: 15000, // Increase timeout for base64 images
+        imageTimeout: 15000,
       });
       container.style.overflow = originalOverflow;
       container.style.maxHeight = originalMaxHeight;
       container.style.height = "";
       const { jsPDF } = window.jspdf;
       const imgData = canvas.toDataURL("image/png", 0.95);
-      
+
       // A4 size: 210mm x 297mm
       const pdf = new jsPDF({
         unit: "mm",
@@ -298,6 +302,8 @@ const ApplicationView = () => {
         jobPostingId,
         application.gender,
         application.category,
+        application.id,
+        null // Token will be automatically pulled from localStorage via apiRequest
       );
 
       if (!orderResponse.success || !orderResponse.data) {
@@ -319,6 +325,7 @@ const ApplicationView = () => {
               response.razorpay_payment_id,
               response.razorpay_signature,
               application.id,
+              null // Token from localStorage
             );
 
             if (!verifyResponse.success) {
@@ -471,14 +478,14 @@ const ApplicationView = () => {
                 {processingPayment ? "Processing..." : "Pay Now"}
               </button>
             ) : (
-            <button
-              onClick={downloadApplicationPDF}
-              disabled={downloadingPDF}
-              className="flex items-center gap-1.5 bg-white border border-[#3AB000] text-[#3AB000] hover:bg-[#3AB000] hover:text-white px-4 py-2 rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Download className="w-3.5 h-3.5" />
-              {downloadingPDF ? "Generating..." : "Download PDF"}
-            </button>
+              <button
+                onClick={downloadApplicationPDF}
+                disabled={downloadingPDF}
+                className="flex items-center gap-1.5 bg-white border border-[#3AB000] text-[#3AB000] hover:bg-[#3AB000] hover:text-white px-4 py-2 rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Download className="w-3.5 h-3.5" />
+                {downloadingPDF ? "Generating..." : "Download PDF"}
+              </button>
             )}
           </div>
         </div>
@@ -516,9 +523,8 @@ const ApplicationView = () => {
                 </div>
               </div>
               <span
-                className={`self-start flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${
-                  statusColors[paymentStatus] || statusColors.pending
-                }`}
+                className={`self-start flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${statusColors[paymentStatus] || statusColors.pending
+                  }`}
               >
                 {isPaid ? (
                   <CheckCircle2 className="w-3.5 h-3.5" />
@@ -620,13 +626,12 @@ const ApplicationView = () => {
                         {key}
                       </td>
                       <td
-                        className={`py-2.5 font-semibold ${
-                          key === "Payment Status"
-                            ? isPaid
-                              ? "text-[#3AB000]"
-                              : "text-yellow-600"
-                            : "text-gray-800"
-                        }`}
+                        className={`py-2.5 font-semibold ${key === "Payment Status"
+                          ? isPaid
+                            ? "text-[#3AB000]"
+                            : "text-yellow-600"
+                          : "text-gray-800"
+                          }`}
                       >
                         {val || "—"}
                       </td>
@@ -772,7 +777,7 @@ const ApplicationView = () => {
             }}
           >
             <span>
-              {new Date().toLocaleString("en-US", {
+              {new Date(application?.createdAt).toLocaleString("en-US", {
                 month: "numeric",
                 day: "numeric",
                 year: "numeric",
@@ -783,7 +788,7 @@ const ApplicationView = () => {
             </span>
             <span>
               Application Slip -{" "}
-              {jobPosting?.postTitle?.en || jobPosting?.post?.en || "Recruitment"} 2024
+              {jobPosting?.postTitle?.en || jobPosting?.post?.en || "Recruitment"} {jobPosting?.advtNo?.match(/\b(19|20)\d{2}\b/)?.[0] || ""}
             </span>
           </div>
 
@@ -845,7 +850,7 @@ const ApplicationView = () => {
             </span>
             <span>
               <strong>Date:</strong>{" "}
-              {new Date().toLocaleString("en-US", {
+              {new Date(application?.createdAt).toLocaleString("en-US", {
                 month: "numeric",
                 day: "numeric",
                 year: "numeric",
@@ -1009,10 +1014,10 @@ const ApplicationView = () => {
                   >
                     {application.dob
                       ? new Date(application.dob).toLocaleDateString("en-GB", {
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric",
-                        })
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      })
                       : ""}
                   </td>
                 </tr>
@@ -1615,7 +1620,7 @@ const ApplicationView = () => {
                     padding: "6px 10px",
                   }}
                 >
-                  {new Date().toLocaleString("en-US", {
+                  {new Date(application?.createdAt).toLocaleString("en-US", {
                     month: "numeric",
                     day: "numeric",
                     year: "numeric",

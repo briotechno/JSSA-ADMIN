@@ -1512,7 +1512,7 @@ const MOUForm = () => {
             </button>
 
             {/* MOCK PAYMENT BUTTON - ONLY FOR LOCALHOST TESTING */}
-            {(window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") && (
+            {/* {(window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") && (
               <button
                 type="button"
                 onClick={handleMockPayment}
@@ -1521,7 +1521,7 @@ const MOUForm = () => {
               >
                 Dev Only: Mock Payment (Role Change Bypass)
               </button>
-            )}
+            )} */}
           </div>
 
         </div>

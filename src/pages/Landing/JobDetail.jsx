@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { jobPostingsAPI, paymentsAPI } from "../../utils/api.js";
 import logo from "../../assets/img0.png";
@@ -2578,12 +2578,7 @@ export default function JobDetail() {
         throw new Error("Higher education is required");
 
       // Start order creation early so it can run in parallel with uploads/apply.
-      const earlyOrderPromise =
-        feeAmount > 0
-          ? paymentsAPI
-              .createOrder(id, formData.gender, formData.category)
-              .catch(() => null)
-          : null;
+      // Removed early order creation to ensure we have an applicationId for the robust webhook link
 
       const [photoUrl, signatureUrl] = await Promise.all([
         uploadApplicationFile(photo, "photo", apiUrl),
@@ -2635,8 +2630,15 @@ export default function JobDetail() {
             "Failed to create application",
         );
 
-      const applicationId = applyData.data.application._id;
+      console.log("📝 Application Created (Frontend):", applyData.data.application);
+      const applicationId = applyData.data.application?._id || applyData.data.application?.id;
       const token = applyData.data.token;
+
+      if (!applicationId) {
+        console.error("❌ Critical: No Application ID returned from backend!", applyData.data);
+      } else {
+        console.log(`✅ Captured Application ID: ${applicationId}`);
+      }
 
       if (feeAmount <= 0) {
         setSubmittedApplication({
@@ -2650,15 +2652,15 @@ export default function JobDetail() {
         return;
       }
 
-      let orderResponse = earlyOrderPromise ? await earlyOrderPromise : null;
-      if (!orderResponse?.success) {
-        orderResponse = await paymentsAPI.createOrder(
-          id,
-          formData.gender,
-          formData.category,
-          token,
-        );
-      }
+      // Create payment order with applicationId
+      console.log(`💳 Initiating Payment Order: job=${id}, app=${applicationId}`);
+      const orderResponse = await paymentsAPI.createOrder(
+        id,
+        formData.gender,
+        formData.category,
+        applicationId,
+        token
+      );
       if (!orderResponse.success)
         throw new Error(
           orderResponse.error || "Failed to create payment order",

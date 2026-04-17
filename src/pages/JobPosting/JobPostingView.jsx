@@ -148,7 +148,8 @@ const JobPostingView = () => {
       const orderResponse = await paymentsAPI.createOrder(
         id,
         applicationStatus.gender,
-        applicationStatus.category
+        applicationStatus.category,
+        applicationStatus.applicationId
       );
 
       if (!orderResponse.success || !orderResponse.data) {
@@ -165,6 +166,9 @@ const JobPostingView = () => {
         name: "JSSA Application Fee",
         description: `Application Fee - ₹${amountInRupees}`,
         order_id: orderId,
+        notes: {
+          applicationId: applicationStatus.applicationId,
+        },
         handler: async function (response) {
           try {
             // Verify payment

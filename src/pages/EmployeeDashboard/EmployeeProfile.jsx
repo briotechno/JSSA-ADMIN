@@ -14,7 +14,7 @@ import {
   Globe,
   Loader2
 } from "lucide-react";
-import { createPaperAPI } from "../../utils/api";
+import { createPaperAPI, employeesAPI } from "../../utils/api";
 import { useAuth } from "../../auth/AuthProvider";
 
 const GREEN = "#3AB000";
@@ -22,11 +22,9 @@ const GREEN = "#3AB000";
 // Helper to sanitize image URLs for production
 const cleanImageUrl = (url) => {
   if (!url) return "";
-  // Direct replacement as requested by user
   if (url.includes("localhost:3005/api")) {
     return url.replace("http://localhost:3005/api", "https://api.jssabhiyan.com/api");
   }
-  // If it's already a relative path, prepend the base URL
   if (url.startsWith("/api/")) {
     return `https://api.jssabhiyan.com/api${url}`;
   }
@@ -60,10 +58,58 @@ const EmployeeProfile = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const res = await createPaperAPI.getAssigned();
-        if (res.success && res.data.tests?.length > 0) {
-          setApp(res.data.tests[0].userAttempt?.applicationId);
+        // Try fetching application data (works for exam-based employees)
+        const [examRes, empRes] = await Promise.allSettled([
+          createPaperAPI.getAssigned(),
+          employeesAPI.getMe(),
+        ]);
+
+        let merged = {};
+
+        // If manual employee profile exists, use it as base
+        if (empRes.status === "fulfilled" && empRes.value?.success && empRes.value?.data) {
+          const ep = empRes.value.data;
+          merged = {
+            candidateName: ep.name,
+            fatherName: ep.fatherName,
+            motherName: ep.motherName,
+            dob: ep.dob,
+            mobile: ep.mobile,
+            email: ep.email,
+            nationality: ep.nationality,
+            panNumber: ep.panNumber,
+            state: ep.state,
+            district: ep.district,
+            blockKhand: ep.blockKhand,
+            gramPanchayat: ep.gramPanchayat,
+            villageTola: ep.villageTola,
+            wardNo: ep.wardNo,
+            pincode: ep.pincode,
+            educationDetails: ep.educationDetails || [],
+            bankName: ep.bankName,
+            accountNumber: ep.accountNumber,
+            ifscCode: ep.ifscCode,
+            accountHolderName: ep.accountHolderName,
+            photo: ep.photo,
+            signature: ep.signature,
+            post: ep.jobPostingId?.title || ep.jobPostingId?.post?.en || "",
+            employeeId: `JSSA/EMP/${ep._id?.slice(-6).toUpperCase()}`,
+            // Map field names for compatibility
+            block: ep.blockKhand,
+            panchayat: ep.gramPanchayat,
+            address: ep.villageTola,
+          };
         }
+
+        // If exam-based application data exists, overlay it (it's more authoritative)
+        if (examRes.status === "fulfilled" && examRes.value?.success && examRes.value?.data?.tests?.length > 0) {
+          const examApp = examRes.value.data.tests[0].userAttempt?.applicationId;
+          if (examApp) {
+            merged = { ...merged, ...examApp };
+          }
+        }
+
+        if (Object.keys(merged).length > 0) setApp(merged);
       } catch (err) {
         console.error("Profile fetch error:", err);
       } finally {

@@ -2900,10 +2900,8 @@ export default function JobDetail() {
     ],
     ["Job Location", job.location?.en || ""],
     ["Selection Process", job.selectionProcess?.en || ""],
-    ["Application Opening On", job.applicationOpeningDate || ""],
-    ["Last Date of Application", job.lastDate || ""],
-    ["1st Merit List Released", job.firstMeritListDate || ""],
-    ["Final Merit List Released", job.finalMeritListDate || ""],
+    ["Onboarding & Training Start Date", job.firstMeritListDate || ""],
+    ["Work Commencement Date / Work Start Date", job.finalMeritListDate || ""],
     ["Fee Structure", feeStructureText],
   ].filter((r) => r[1]);
 
@@ -2920,8 +2918,8 @@ export default function JobDetail() {
     ["चयन प्रक्रिया", pickHindiOrFallback(job.selectionProcess?.hi, job.selectionProcess?.en || "")],
     ["आवेदन खुलने की तिथि", job.applicationOpeningDate || ""],
     ["आवेदन की अंतिम तिथि", job.lastDate || ""],
-    ["1st मेधा सूची जारी", job.firstMeritListDate || ""],
-    ["अंतिम मेधा सूची जारी", job.finalMeritListDate || ""],
+    ["जॉइनिंग एवं प्रशिक्षण प्रारंभ तिथि", job.firstMeritListDate || ""],
+    ["कार्य प्रारंभ तिथि", job.finalMeritListDate || ""],
     ["शुल्क संरचना", feeStructureTextHi],
   ].filter((r) => r[1]);
 

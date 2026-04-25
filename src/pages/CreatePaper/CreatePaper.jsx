@@ -28,6 +28,8 @@
 //   Lock,
 //   Globe,
 //   PlayCircle,
+//   Mail,
+//   MessageSquare,
 //   ChevronLeft,
 //   ChevronRight,
 //   ChevronDown,
@@ -2344,6 +2346,7 @@ import {
   Edit,
   Trash2,
   X,
+  Bell,
   Calendar,
   Clock,
   Users,
@@ -2351,6 +2354,9 @@ import {
   BookOpen,
   Lock,
   Globe,
+  PlayCircle,
+  Mail,
+  MessageSquare,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -2360,7 +2366,13 @@ import {
   Monitor,
   HelpCircle,
   Settings,
+  Filter,
+  RefreshCw,
+  Pause,
+  Play,
+  Square,
 } from "lucide-react";
+import { useBroadcast } from "../../context/BroadcastContext";
 
 // ─── Static Data ───────────────────────────────────────────────────────────────
 const SUBJECT_OPTIONS = [
@@ -2452,6 +2464,8 @@ const normalizeTest = (item) => ({
       .filter(Boolean)
       .map((s) => (typeof s === "object" ? s : { _id: String(s) }))
     : [],
+  parentExamId: item?.parentExamId || null,
+  rescheduleTarget: item?.rescheduleTarget || null,
   createdDate: item?.createdDate || item?.createdAt || new Date().toISOString(),
   rewards: Array.isArray(item?.rewards) ? item.rewards : [],
 });
@@ -2509,13 +2523,220 @@ function SelectionProgressBar({ selected, total }) {
 
 // ─── Details View ──────────────────────────────────────────────────────────────
 function DetailsView({ test, onBack }) {
+  const [activeTab, setActiveTab] = useState("students");
+  const [attempts, setAttempts] = useState([]);
+  const [isLoadingAttempts, setIsLoadingAttempts] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [rescheduleData, setRescheduleData] = useState({
+    startDate: "",
+    endDate: "",
+    mouStartDate: "",
+    mouEndDate: "",
+    resultDate: "",
+    showResult: true,
+  });
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [selectionMode, setSelectionMode] = useState("manual"); // "manual" or "all-filtered"
+  const [deselectedIds, setDeselectedIds] = useState(new Set());
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [notifChannels, setNotifChannels] = useState({ sms: true, email: false });
+  const [notifProgress, setNotifProgress] = useState({ sent: 0, total: 0 });
+  const [successInfo, setSuccessInfo] = useState({ show: false, message: "", total: 0 });
+  const [isBroadcastComplete, setIsBroadcastComplete] = useState(false);
+  const { addJob } = useBroadcast();
+
   const assigned = Array.isArray(test.assignedStudents)
     ? test.assignedStudents
     : [];
   const questions = Array.isArray(test.questionConfigs)
     ? test.questionConfigs
     : [];
-  const [activeTab, setActiveTab] = useState("students");
+
+  const loadAttempts = async () => {
+    setIsLoadingAttempts(true);
+    try {
+      const res = await createPaperAPI.getAttempts(test._id || test.id, {
+        limit: 20,
+        page: page,
+        status: statusFilter,
+      });
+      if (res?.success) {
+        setAttempts(res.data?.attempts || []);
+        setTotalPages(res.data?.pagination?.pages || 1);
+        setTotalCount(res.data?.pagination?.total || 0);
+      }
+    } catch (err) {
+      console.error("Load attempts error:", err);
+    } finally {
+      setIsLoadingAttempts(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "students") {
+      loadAttempts();
+    }
+  }, [activeTab, statusFilter, page]);
+
+  useEffect(() => {
+    setPage(1);
+    if (statusFilter === "all") {
+      setSelectedIds([]);
+      setSelectionMode("manual");
+      setDeselectedIds(new Set());
+    }
+  }, [statusFilter]);
+
+  const handleSelectToggle = (id) => {
+    if (selectionMode === "all-filtered") {
+      setDeselectedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      });
+      return;
+    }
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectionMode === "all-filtered") {
+      setSelectionMode("manual");
+      setDeselectedIds(new Set());
+      setSelectedIds([]);
+    } else {
+      setSelectionMode("all-filtered");
+      setDeselectedIds(new Set());
+      setSelectedIds([]);
+    }
+  };
+
+  const isSelected = (id) => {
+    if (selectionMode === "all-filtered") return !deselectedIds.has(id);
+    return selectedIds.includes(id);
+  };
+
+  const selectionCount = useMemo(() => {
+    if (selectionMode === "all-filtered") return Math.max(0, totalCount - deselectedIds.size);
+    return selectedIds.length;
+  }, [selectionMode, selectedIds, deselectedIds, totalCount]);
+
+  const handleRescheduleSubmit = async () => {
+    if (!rescheduleData.startDate || !rescheduleData.endDate) {
+      alert("Please select both Start and End dates.");
+      return;
+    }
+
+    let finalIds = [...selectedIds];
+
+    setIsSubmitting(true);
+    try {
+      if (selectionMode === "all-filtered") {
+        // Fetch ALL IDs matching filters
+        const res = await createPaperAPI.getAllStudentIds(test._id || test.id, {
+          status: statusFilter,
+        });
+        if (res?.success) {
+          finalIds = (res.data?.studentIds || []).filter(id => !deselectedIds.has(String(id)));
+        } else {
+          throw new Error("Failed to fetch all matching candidates.");
+        }
+      }
+
+      if (finalIds.length === 0) {
+        alert("No candidates selected.");
+        return;
+      }
+
+      const res = await createPaperAPI.planReExam(test._id || test.id, finalIds, {
+        startDate: rescheduleData.startDate,
+        endDate: rescheduleData.endDate,
+        mouStartDate: rescheduleData.mouStartDate,
+        mouEndDate: rescheduleData.mouEndDate,
+        resultDate: rescheduleData.showResult ? "" : rescheduleData.resultDate,
+        showResult: rescheduleData.showResult,
+        rescheduleTarget: {
+          "fail": "Fail",
+          "missed": "Missed",
+          "not started": "Not Started",
+          "pass": "Pass",
+          "all": "Mixed"
+        }[statusFilter] || "Mixed",
+        status: "published",
+        titlePrefix: "Rescheduled: ",
+      });
+      if (res?.success) {
+        setSuccessInfo({ show: true, message: `Exam Rescheduled for ${finalIds.length} candidates!` });
+        setTimeout(() => setSuccessInfo({ show: false, message: "" }), 3500);
+        setShowRescheduleModal(false);
+        setSelectedIds([]);
+        setDeselectedIds(new Set());
+        setSelectionMode("manual");
+        loadAttempts();
+      } else {
+        alert(res?.error || "Failed to reschedule.");
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleManualNotify = async () => {
+    setShowNotificationModal(true);
+  };
+
+  const startBroadcast = async () => {
+    let finalIds = [...selectedIds];
+    setIsSubmitting(true);
+    try {
+      if (selectionMode === "all-filtered") {
+        const res = await createPaperAPI.getAllStudentIds(test._id || test.id, {
+          status: statusFilter,
+        });
+        if (res?.success) {
+          finalIds = (res.data?.studentIds || []).filter(id => !deselectedIds.has(String(id)));
+        }
+      }
+
+      if (finalIds.length === 0) {
+        alert("Please select candidates to notify.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      setShowNotificationModal(false);
+      
+      // Start background broadcast
+      const res = await createPaperAPI.startBroadcast(test._id || test.id, finalIds, {
+        channels: notifChannels
+      });
+
+      if (res?.success) {
+        addJob({
+          _id: res.data.jobId,
+          title: test.title,
+          totalCandidates: finalIds.length,
+          sentCount: 0,
+          status: "processing",
+          jobType: "test"
+        });
+      }
+    } catch (err) {
+      alert("Error starting broadcast.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const tabs = [
     {
@@ -2581,89 +2802,384 @@ function DetailsView({ test, onBack }) {
         {/* Students Tab */}
         {activeTab === "students" && (
           <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
-              {[
-                { label: "Total Assigned", value: assigned.length },
-                {
-                  label: "Districts Covered",
-                  value: [...new Set(assigned.map((s) => s.district))].filter(
-                    Boolean,
-                  ).length,
-                },
-                {
-                  label: "Contact Rate",
-                  value: `${Math.round((assigned.filter((s) => s.mobile).length / (assigned.length || 1)) * 100)}%`,
-                },
-              ].map((stat, i) => (
-                <div
-                  key={i}
-                  className="bg-white border border-gray-200 rounded p-4"
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setStatusFilter("all")}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${statusFilter === "all" ? "bg-black text-white" : "bg-white text-gray-400 border border-gray-100 hover:border-gray-200"}`}
                 >
-                  <p className="text-xs text-gray-400 font-medium mb-1">
-                    {stat.label}
-                  </p>
-                  <p className="text-2xl font-bold text-gray-800">
-                    {stat.value}
-                  </p>
+                  All Candidates
+                </button>
+                <button
+                  onClick={() => setStatusFilter("fail")}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${statusFilter === "fail" ? "bg-red-500 text-white" : "bg-white text-gray-400 border border-gray-100 hover:border-gray-200"}`}
+                >
+                  Failed Only
+                </button>
+                <button
+                  onClick={() => setStatusFilter("not started")}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${statusFilter === "not started" ? "bg-amber-500 text-white" : "bg-white text-gray-400 border border-gray-100 hover:border-gray-200"}`}
+                >
+                  Not Started
+                </button>
+                <button
+                  onClick={() => setStatusFilter("missed")}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${statusFilter === "missed" ? "bg-red-900 text-white" : "bg-white text-gray-400 border border-gray-100 hover:border-gray-200"}`}
+                >
+                  Missed
+                </button>
+              </div>
+
+              {selectionCount > 0 && (
+                <div className="flex items-center gap-4 animate-in fade-in slide-in-from-right-4">
+                  <div className="flex flex-col items-end">
+                    <span className="text-xs font-bold text-[#3AB000] leading-none">{selectionCount} Selected</span>
+                    <span className="text-[9px] text-gray-400 font-bold uppercase tracking-tight">Across all pages</span>
+                  </div>
+                  <button
+                    onClick={handleManualNotify}
+                    className="bg-white text-black border border-gray-200 px-6 py-2 rounded text-xs font-black uppercase tracking-widest hover:bg-gray-50 transition-all flex items-center gap-2 shadow-sm"
+                  >
+                    <Bell size={14} className="text-[#3AB000]" /> Notify Selected
+                  </button>
+                  <button
+                    onClick={() => {
+                      setRescheduleData({
+                        startDate: test.startDate || "",
+                        endDate: test.endDate || "",
+                        mouStartDate: test.mouStartDate || "",
+                        mouEndDate: test.mouEndDate || "",
+                        resultDate: test.resultDate || "",
+                        showResult: test.showResult !== false,
+                      });
+                      setShowRescheduleModal(true);
+                    }}
+                    className="bg-black text-white px-6 py-2 rounded text-xs font-black uppercase tracking-widest hover:bg-[#3AB000] transition-all flex items-center gap-2 shadow-lg"
+                  >
+                    <Calendar size={14} /> Update Exam Date
+                  </button>
                 </div>
-              ))}
+              )}
             </div>
 
             <div className="bg-white border border-gray-200 rounded overflow-hidden">
-              {assigned.length === 0 ? (
+              {isLoadingAttempts ? (
+                <div className="py-20 flex flex-col items-center justify-center gap-3">
+                  <RefreshCw className="animate-spin text-[#3AB000]" size={30} />
+                  <p className="text-sm font-bold text-gray-400">Loading Candidates...</p>
+                </div>
+              ) : attempts.length === 0 ? (
                 <div className="py-16 text-center text-gray-400 text-sm">
-                  No students assigned.
+                  {statusFilter === "all" ? "No candidates assigned yet." : `No candidates found with status: ${statusFilter.toUpperCase()}`}
                 </div>
               ) : (
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-[#3AB000]">
-                      <th className="px-4 py-3 text-left font-bold text-black">
-                        Candidate Details
+                      <th className="px-4 py-3 text-left w-10">
+                        {statusFilter !== "all" && (
+                          <input
+                            type="checkbox"
+                            checked={selectionMode === "all-filtered" || (selectedIds.length === attempts.length && attempts.length > 0)}
+                            onChange={handleSelectAll}
+                            className={`w-4 h-4 rounded-sm ${selectionMode === "all-filtered" ? "accent-[#3AB000]" : "accent-black"}`}
+                            title={selectionMode === "all-filtered" ? "Click to clear all selection" : "Select all matching candidates"}
+                          />
+                        )}
                       </th>
-                      <th className="px-4 py-3 text-left font-bold text-black">
-                        Contact & Location
+                      <th className="px-4 py-3 text-left font-bold text-black uppercase tracking-tight text-[11px]">
+                        Candidate Info
+                      </th>
+                      <th className="px-4 py-3 text-left font-bold text-black uppercase tracking-tight text-[11px]">
+                        Score & Result
+                      </th>
+                      <th className="px-4 py-3 text-left font-bold text-black uppercase tracking-tight text-[11px]">
+                        Location
                       </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {assigned.map((s, i) => (
-                      <tr
-                        key={s._id || i}
-                        className="border-b border-gray-100 hover:bg-[#e8f5e2] transition-colors"
-                      >
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <img
-                              src={s.photo || "/placeholder.png"}
-                              alt={s.candidateName}
-                              className="w-9 h-9 rounded-full object-cover border border-gray-200"
-                            />
-                            <div>
-                              <p className="font-semibold text-[#2d8a00]">
-                                {s.candidateName || "Unknown"}
-                              </p>
-                              <p className="text-xs text-gray-400">
-                                S/O: {s.fatherName || "N/A"}
-                              </p>
+                    {attempts.map((s, i) => {
+                      const appId = s.applicationId?._id || s.applicationId || s._id;
+                      const isRowSelected = isSelected(appId);
+                      const candidate = s.applicationId || {};
+                      return (
+                        <tr
+                          key={appId || i}
+                          className={`border-b border-gray-100 hover:bg-[#f0fce8] transition-colors ${isRowSelected ? "bg-[#f0fce8]" : ""}`}
+                        >
+                          <td className="px-4 py-3">
+                            {statusFilter !== "all" && (
+                              <input
+                                type="checkbox"
+                                checked={isRowSelected}
+                                onChange={() => handleSelectToggle(appId)}
+                                className="w-4 h-4 accent-[#3AB000]"
+                              />
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <img
+                                src={candidate.photo || "/placeholder.png"}
+                                alt={candidate.candidateName}
+                                className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm shrink-0"
+                              />
+                              <div>
+                                <p className="font-bold text-gray-800">
+                                  {candidate.candidateName || "Unknown"}
+                                </p>
+                                <p className="text-[10px] text-gray-400 font-medium italic">
+                                  S/O: {candidate.fatherName || "N/A"}
+                                </p>
+                              </div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-gray-600">
-                          <p className="text-xs">{s.mobile || "N/A"}</p>
-                          <p className="text-xs text-gray-400">
-                            {s.email || "N/A"}
-                          </p>
-                          <p className="text-xs text-gray-400">{s.district}</p>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-col">
+                              <span className="font-black text-gray-700">
+                                {s.score !== undefined ? `${s.score}/${test.totalMarks}` : "---"}
+                              </span>
+                              <span className={`text-[10px] font-black uppercase ${s.status === "Pass" ? "text-[#3AB000]" :
+                                s.status === "Fail" ? "text-red-500" :
+                                  s.status === "Missed" ? "text-red-900" :
+                                    "text-amber-500"
+                                }`}>
+                                {s.status || "Not Started"}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">
+                            <p className="text-[11px] font-bold">{candidate.mobile || "N/A"}</p>
+                            <p className="text-[10px] text-gray-400 uppercase font-medium">{candidate.district}</p>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
+              )}
+
+              {/* Pagination Controls */}
+              {!isLoadingAttempts && attempts.length > 0 && (
+                <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                    Page {page} of {totalPages}
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      disabled={page === 1}
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      className="px-4 py-1.5 bg-white border border-gray-200 text-[10px] font-black uppercase tracking-widest hover:bg-gray-50 disabled:opacity-50 transition-all shadow-sm"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      disabled={page === totalPages}
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                      className="px-4 py-1.5 bg-white border border-gray-200 text-[10px] font-black uppercase tracking-widest hover:bg-gray-50 disabled:opacity-50 transition-all shadow-sm"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           </div>
         )}
+
+        {/* Reschedule Modal Overlay */}
+        {showRescheduleModal && (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-300">
+            <div className="bg-white rounded shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in duration-300">
+              <div className="bg-black text-white px-6 py-4 flex items-center justify-between">
+                <h3 className="font-black text-sm uppercase tracking-widest flex items-center gap-2 text-[#3AB000]">
+                  <Calendar size={18} /> Reschedule Exam Date
+                </h3>
+                <button onClick={() => setShowRescheduleModal(false)} className="hover:bg-white/10 p-1 rounded-full"><X size={20} /></button>
+              </div>
+              <div className="p-6 space-y-6">
+                <div className="p-4 bg-blue-50 border border-blue-100 rounded-none text-blue-800 text-[11px] font-medium italic">
+                  Note: Naya exam paper ban jayega jo sirf in {selectedIds.length} candidates ko dikhega.
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 text-left">Start Date</label>
+                    <input
+                      type="date"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-none text-sm outline-none focus:ring-2 focus:ring-[#3AB000]/20"
+                      value={rescheduleData.startDate}
+                      onChange={(e) => setRescheduleData({ ...rescheduleData, startDate: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 text-left">End Date</label>
+                    <input
+                      type="date"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-none text-sm outline-none focus:ring-2 focus:ring-[#3AB000]/20"
+                      value={rescheduleData.endDate}
+                      onChange={(e) => setRescheduleData({ ...rescheduleData, endDate: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 text-left">MOU Start Date</label>
+                    <input
+                      type="date"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-none text-sm outline-none focus:ring-2 focus:ring-[#3AB000]/20"
+                      value={rescheduleData.mouStartDate}
+                      onChange={(e) => setRescheduleData({ ...rescheduleData, mouStartDate: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 text-left">MOU End Date</label>
+                    <input
+                      type="date"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-none text-sm outline-none focus:ring-2 focus:ring-[#3AB000]/20"
+                      value={rescheduleData.mouEndDate}
+                      onChange={(e) => setRescheduleData({ ...rescheduleData, mouEndDate: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between bg-gray-50 p-3 border border-gray-100 rounded">
+                    <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Instant Results</p>
+                      <p className="text-[10px] text-gray-500">Show score immediately after submission</p>
+                    </div>
+                    <div
+                      onClick={() => setRescheduleData((p) => ({ ...p, showResult: !p.showResult }))}
+                      className={`w-9 h-5 rounded-full relative transition-colors cursor-pointer shrink-0 ${rescheduleData.showResult ? "bg-[#3AB000]" : "bg-gray-200"}`}
+                    >
+                      <div
+                        className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all shadow ${rescheduleData.showResult ? "left-4" : "left-0.5"}`}
+                      />
+                    </div>
+                  </div>
+
+                  {!rescheduleData.showResult && (
+                    <div className="animate-in slide-in-from-top-2 duration-200">
+                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 text-left">Result Date</label>
+                      <input
+                        type="date"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-none text-sm outline-none focus:ring-2 focus:ring-[#3AB000]/20"
+                        value={rescheduleData.resultDate}
+                        onChange={(e) => setRescheduleData({ ...rescheduleData, resultDate: e.target.value })}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="bg-gray-50 px-6 py-4 flex items-center justify-end gap-3 border-t border-gray-100">
+                <button onClick={() => setShowRescheduleModal(false)} className="text-gray-400 font-bold text-xs uppercase">Cancel</button>
+                <button
+                  disabled={isSubmitting}
+                  onClick={handleRescheduleSubmit}
+                  className="bg-[#3AB000] text-white px-8 py-2.5 rounded shadow-xl text-xs font-black uppercase tracking-widest hover:bg-[#2d8a00] transition-all disabled:opacity-50"
+                >
+                  {isSubmitting ? "Processing..." : "Assign New Dates"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Notification Modal */}
+        {showNotificationModal && (
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4 font-sans">
+            <div className="bg-white rounded-none shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+              <div className="flex items-center justify-between px-6 py-4 bg-[#3AB000]">
+                <h2 className="text-white font-bold text-base flex items-center gap-2">
+                  {isBroadcastComplete ? "✅ Operation Success" : "📣 Broadcast Notification"}
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowNotificationModal(false);
+                    setIsBroadcastComplete(false);
+                  }}
+                  className="text-white hover:opacity-70"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {isBroadcastComplete ? (
+                <div className="p-8 text-center space-y-4">
+                  <div className="w-16 h-16 bg-[#f0fce8] text-[#3AB000] rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle size={32} />
+                  </div>
+                  <h3 className="text-lg font-black uppercase tracking-tight text-gray-800">Mission Accomplished!</h3>
+                  <p className="text-gray-500 text-sm leading-relaxed">
+                    Notifications have been successfully delivered to <span className="text-[#3AB000] font-bold">{successInfo.total} Candidates</span> across selected channels.
+                  </p>
+                  <div className="pt-4 px-4">
+                    <button
+                      onClick={() => {
+                        setShowNotificationModal(false);
+                        setIsBroadcastComplete(false);
+                      }}
+                      className="w-full bg-black text-white py-3 font-black uppercase tracking-widest text-xs hover:bg-[#3AB000] transition-colors"
+                    >
+                      Close Window
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="p-6 space-y-6 text-left">
+                    <div className="p-4 bg-blue-50 border-l-4 border-blue-500 rounded-none text-blue-700 text-xs font-medium">
+                      Selected {selectionCount} candidates will be notified using the official exam template.
+                    </div>
+                    <div className="space-y-4">
+                      <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest block mb-1 underline decoration-[#3AB000] underline-offset-4 decoration-2">Channels to use</label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <button
+                          onClick={() => setNotifChannels(p => ({ ...p, sms: !p.sms }))}
+                          className={`flex flex-col items-center justify-center gap-2 p-4 border-2 rounded-none transition-all ${notifChannels.sms ? "border-[#3AB000] bg-[#f0fce8] text-[#3AB000]" : "border-gray-100 text-gray-300 bg-gray-50/30"}`}
+                        >
+                          <div className={`p-2 rounded-full ${notifChannels.sms ? "bg-[#3AB000] text-white" : "bg-gray-100 text-gray-400"}`}>
+                            <MessageSquare size={18} />
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-tighter">SMS Notification</span>
+                        </button>
+                        <button
+                          onClick={() => setNotifChannels(p => ({ ...p, email: !p.email }))}
+                          className={`flex flex-col items-center justify-center gap-2 p-4 border-2 rounded-none transition-all ${notifChannels.email ? "border-[#3AB000] bg-[#f0fce8] text-[#3AB000]" : "border-gray-100 text-gray-300 bg-gray-50/30"}`}
+                        >
+                          <div className={`p-2 rounded-full ${notifChannels.email ? "bg-[#3AB000] text-white" : "bg-gray-100 text-gray-400"}`}>
+                            <Mail size={18} />
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-tighter">Professional Email</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="px-6 py-5 bg-gray-50/50 border-t flex justify-end items-center gap-5">
+                    <button
+                      onClick={() => setShowNotificationModal(false)}
+                      className="text-[11px] font-black text-gray-400 uppercase tracking-widest hover:text-red-500 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={startBroadcast}
+                      disabled={!notifChannels.sms && !notifChannels.email}
+                      className="bg-black text-white px-8 py-3 rounded-none text-[11px] font-black uppercase tracking-widest hover:bg-[#3AB000] transition-all flex items-center gap-2 active:scale-95 shadow-xl shadow-black/10 disabled:opacity-20"
+                    >
+                      Start Broadcast
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+
 
         {/* Questions Tab */}
         {activeTab === "questions" && (
@@ -2921,6 +3437,7 @@ function CreateEditView({
   const [sCurrentPage, setSCurrentPage] = useState(1);
   const [sTotalPages, setSTotalPages] = useState(1);
   const [sTotalItems, setSTotalItems] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
   const S_PAGE_SIZE = 15;
 
   useEffect(() => {
@@ -3161,47 +3678,58 @@ function CreateEditView({
       return;
     }
 
-    let finalForm = { ...formData };
+    let finalForm = { 
+      ...formData,
+      resultDate: formData.showResult ? "" : formData.resultDate
+    };
 
-    // If All Paid mode was active, generate the full list now (at the very end)
-    if (selectionMode === "all-paid") {
-      setIsSelectingAll(true);
-      try {
-        const posting = postings.find((p) => {
-          const en = String(p?.post?.en || "").trim();
-          return (
-            en === formData.title.trim() ||
-            String(p?.title || "").trim() === formData.title.trim()
-          );
-        });
-        const params = {
-          limit: 0,
-          paymentStatus: "paid",
-          minimal: "true",
-          search: debouncedStudentSearch,
-        };
-        if (posting?._id) params.jobPostingId = posting._id;
-        if (studentStartDate) params.startDate = studentStartDate;
-        if (studentEndDate) params.endDate = studentEndDate;
+    setIsSaving(true);
+    try {
+      // If All Paid mode was active, generate the full list now (at the very end)
+      if (selectionMode === "all-paid") {
+        setIsSelectingAll(true);
+        try {
+          const posting = postings.find((p) => {
+            const en = String(p?.post?.en || "").trim();
+            return (
+              en === formData.title.trim() ||
+              String(p?.title || "").trim() === formData.title.trim()
+            );
+          });
+          const params = {
+            limit: 0,
+            paymentStatus: "paid",
+            minimal: "true",
+            search: debouncedStudentSearch,
+          };
+          if (posting?._id) params.jobPostingId = posting._id;
+          if (studentStartDate) params.startDate = studentStartDate;
+          if (studentEndDate) params.endDate = studentEndDate;
 
-        const res = await applicationsAPI.getAll(params);
-        if (res?.success) {
-          const allIds = (res.data?.applications || [])
-            .map((a) => a._id)
-            .filter((id) => !deselectedIds.has(id));
-          finalForm.assignedStudents = allIds;
+          const res = await applicationsAPI.getAll(params);
+          if (res?.success) {
+            const allIds = (res.data?.applications || [])
+              .map((a) => a._id)
+              .filter((id) => !deselectedIds.has(id));
+            finalForm.assignedStudents = allIds;
+          }
+        } catch (err) {
+          console.error("Failed to generate complete student list:", err);
+          alert("Error generating student list. Please try again.");
+          setIsSelectingAll(false);
+          setIsSaving(false);
+          return;
+        } finally {
+          setIsSelectingAll(false);
         }
-      } catch (err) {
-        console.error("Failed to generate complete student list:", err);
-        alert("Error generating student list. Please try again.");
-        setIsSelectingAll(false);
-        return;
-      } finally {
-        setIsSelectingAll(false);
       }
-    }
 
-    onSave(finalForm);
+      await onSave(finalForm);
+    } catch (err) {
+      console.error("Submit error:", err);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const tabs = [
@@ -3867,6 +4395,7 @@ function CreateEditView({
           {tabs.findIndex((t) => t.key === activeTab) > 0 ? "Back" : "Cancel"}
         </button>
         <button
+          disabled={isSaving}
           onClick={() => {
             const currentIndex = tabs.findIndex((t) => t.key === activeTab);
             if (currentIndex < tabs.length - 1) {
@@ -3880,13 +4409,14 @@ function CreateEditView({
               handleSubmit();
             }
           }}
-          className="px-8 py-2 bg-black hover:bg-[#3AB000] text-white rounded-sm text-sm font-medium transition-colors"
+          className="px-8 py-2 bg-black hover:bg-[#3AB000] text-white rounded-sm text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
         >
+          {isSaving && <RefreshCw size={14} className="animate-spin" />}
           {tabs.findIndex((t) => t.key === activeTab) < tabs.length - 1
             ? "Next"
-            : editingTest?.id
-              ? "Update Event"
-              : "Create Event"}
+            : isSaving
+              ? (editingTest?.id ? "Updating..." : "Creating...")
+              : (editingTest?.id ? "Update Event" : "Create Event")}
         </button>
       </div>
 
@@ -4118,6 +4648,7 @@ export default function TestManagement() {
   const [showModal, setShowModal] = useState(false);
   const [editingTest, setEditingTest] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [expandedRows, setExpandedRows] = useState(new Set());
   const itemsPerPage = 7;
 
   useEffect(() => {
@@ -4191,18 +4722,44 @@ export default function TestManagement() {
     [tests],
   );
 
+  const grouped = useMemo(() => {
+    const mainExams = [];
+    const subExams = [];
+    
+    tests.forEach((t) => {
+      if (t.parentExamId) subExams.push(t);
+      else mainExams.push({ ...t, children: [] });
+    });
+    
+    subExams.forEach((sub) => {
+      const parent = mainExams.find(m => m.id === sub.parentExamId);
+      if (parent) {
+         parent.children.push(sub);
+      } else {
+         mainExams.push({ ...sub, children: [] });
+      }
+    });
+    
+    mainExams.forEach(m => {
+       if (m.children) m.children.sort((a,b) => new Date(b.createdDate) - new Date(a.createdDate));
+    });
+    
+    return mainExams;
+  }, [tests]);
+
   const filtered = useMemo(
     () =>
-      tests
+      grouped
         .filter((t) => {
           const q = searchQuery.toLowerCase();
           const matchSearch =
             t.title.toLowerCase().includes(q) ||
             (Array.isArray(t.tags) ? t.tags : []).some((tg) =>
               tg.toLowerCase().includes(q),
-            );
+            ) ||
+            (t.children || []).some(c => c.title.toLowerCase().includes(q)); // Search in children too
           const matchStatus =
-            filterStatus === "all" || t.status === filterStatus;
+            filterStatus === "all" || t.status === filterStatus || (t.children || []).some(c => c.status === filterStatus);
           return matchSearch && matchStatus;
         })
         .sort((a, b) => {
@@ -4215,8 +4772,24 @@ export default function TestManagement() {
           if (aA !== bA) return aA ? -1 : 1;
           return new Date(b.createdDate) - new Date(a.createdDate);
         }),
-    [tests, searchQuery, filterStatus],
+    [grouped, searchQuery, filterStatus],
   );
+
+  const toggleRow = (id) => {
+    setExpandedRows(prev => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  };
+
+  const renderBadge = (target) => {
+    if (!target) return null;
+    if (target === "Fail") return <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700">Fail Batch</span>;
+    if (target === "Missed") return <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-100 text-orange-700">Missed Batch</span>;
+    return <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700">{target} Batch</span>;
+  };
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const pagedTests = filtered.slice(
@@ -4240,6 +4813,8 @@ export default function TestManagement() {
         .filter(Boolean),
       mouStartDate: formData.mouStartDate || "",
       mouEndDate: formData.mouEndDate || "",
+      showResult: Boolean(formData.showResult),
+      resultDate: formData.showResult ? "" : (formData.resultDate || ""),
       questionConfigs: Array.isArray(formData.questionConfigs)
         ? formData.questionConfigs.map((cfg) => ({
           questionId: String(cfg.questionId),
@@ -4409,15 +4984,28 @@ export default function TestManagement() {
                   </button>
                 </div>
               </div>
-              <button
-                onClick={() => {
-                  setEditingTest(null);
-                  setShowModal(true);
-                }}
-                className="bg-black hover:bg-[#3AB000] text-white text-xs sm:text-sm font-medium px-4 sm:px-6 py-2.5 rounded-sm transition-colors whitespace-nowrap w-full sm:w-auto"
-              >
-                + Create Event
-              </button>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  onClick={() => loadTests()}
+                  className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 p-2.5 rounded-sm transition-colors flex items-center justify-center group"
+                  title="Refresh List"
+                  disabled={isLoadingTests}
+                >
+                  <RefreshCw
+                    size={18}
+                    className={`${isLoadingTests ? "animate-spin text-[#3AB000]" : "group-hover:rotate-180"} transition-all duration-500`}
+                  />
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingTest(null);
+                    setShowModal(true);
+                  }}
+                  className="bg-black hover:bg-[#3AB000] text-white text-xs sm:text-sm font-medium px-4 sm:px-6 py-2.5 rounded-sm transition-colors whitespace-nowrap flex-1 sm:flex-none"
+                >
+                  + Create Event
+                </button>
+              </div>
             </div>
 
             {/* Desktop Table */}
@@ -4472,105 +5060,159 @@ export default function TestManagement() {
                   ) : (
                     <tbody>
                       {pagedTests.map((test, idx) => (
-                        <tr
-                          key={test.id}
-                          className="border-b border-gray-100 hover:bg-[#e8f5e2] transition-colors"
-                        >
-                          <td className="px-4 py-4 text-center text-gray-600">
-                            {(currentPage - 1) * itemsPerPage + idx + 1}
-                          </td>
-                          <td className="px-4 py-4 text-center text-[#2d8a00] font-semibold">
-                            {test.title}
-                          </td>
-                          <td className="px-4 py-4 text-center text-gray-600">
-                            {test.totalQuestions}
-                          </td>
-                          <td className="px-4 py-4 text-center text-gray-600">
-                            {test.assignedStudents?.length || 0}
-                          </td>
-                          <td className="px-4 py-4 text-center text-gray-600 whitespace-nowrap">
-                            {test.duration} Min
-                          </td>
-                          <td
-                            className={`px-4 py-4 text-center text-xs font-semibold ${test.status === "published" ? "text-[#3AB000]" : "text-gray-400"}`}
+                        <React.Fragment key={test.id}>
+                          <tr
+                            className="border-b border-gray-100 hover:bg-[#e8f5e2] transition-colors"
                           >
-                            {test.status === "published"
-                              ? "Published"
-                              : "Draft"}
-                          </td>
-                          <td className="px-4 py-4 text-center">
-                            <div className="flex items-center justify-center gap-3">
-                              <button
-                                onClick={async () => {
-                                  setIsFetchingDetails(true);
-                                  try {
-                                    const res = await createPaperAPI.getDetails(
-                                      test.id,
-                                    );
-                                    if (res?.success) {
-                                      setDetailsTest(
-                                        normalizeTest(res.data.test),
-                                      );
-                                      setShowDetailsModal(true);
-                                    } else
-                                      alert("Failed to load test details.");
-                                  } finally {
-                                    setIsFetchingDetails(false);
-                                  }
-                                }}
-                                className="text-[#3AB000] hover:text-[#2d8a00] transition-colors"
-                                title="View"
-                              >
-                                <Eye className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  setIsFetchingDetails(true);
-                                  try {
-                                    const res = await createPaperAPI.getDetails(
-                                      test.id,
-                                    );
-                                    if (res?.success) {
-                                      setEditingTest(
-                                        normalizeTest(res.data.test),
-                                      );
-                                      setShowModal(true);
-                                    } else
-                                      alert("Failed to load test for editing.");
-                                  } finally {
-                                    setIsFetchingDetails(false);
-                                  }
-                                }}
-                                className="text-[#3AB000] hover:text-blue-600 transition-colors"
-                                title="Edit"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => toggleStatus(test.id)}
-                                className={`transition-colors ${test.status === "published" ? "text-[#3AB000] hover:text-amber-600" : "text-[#3AB000] hover:text-[#2d8a00]"}`}
-                                title={
-                                  test.status === "published"
-                                    ? "Move to Draft"
-                                    : "Publish"
-                                }
-                              >
-                                {test.status === "published" ? (
-                                  <Lock className="w-4 h-4" />
-                                ) : (
-                                  <Globe className="w-4 h-4" />
-                                )}
-                              </button>
-                              <button
-                                onClick={() => handleDelete(test.id)}
-                                className="text-[#3AB000] hover:text-red-600 transition-colors"
-                                title="Delete"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
+                            <td className="px-4 py-4 text-center text-gray-600">
+                              {(currentPage - 1) * itemsPerPage + idx + 1}
+                            </td>
+                            <td className="px-4 py-4 text-left text-[#2d8a00] font-semibold flex items-center">
+                              {test.children && test.children.length > 0 && (
+                                <button onClick={() => toggleRow(test.id)} className="mr-2 p-1 hover:bg-gray-200 rounded text-gray-500">
+                                  <ChevronDown size={14} className={`transform transition-transform ${expandedRows.has(test.id) ? "rotate-180" : ""}`} />
+                                </button>
+                              )}
+                              <span>{test.title}</span>
+                              {renderBadge(test.rescheduleTarget)}
+                            </td>
+                            <td className="px-4 py-4 text-center text-gray-600">
+                              {test.totalQuestions}
+                            </td>
+                            <td className="px-4 py-4 text-center text-gray-600">
+                              {test.assignedStudents?.length || 0}
+                            </td>
+                            <td className="px-4 py-4 text-center text-gray-600 whitespace-nowrap">
+                              {test.duration} Min
+                            </td>
+                            <td
+                              className={`px-4 py-4 text-center text-xs font-semibold ${test.status === "published" ? "text-[#3AB000]" : "text-gray-400"}`}
+                            >
+                              {test.status === "published"
+                                ? "Published"
+                                : "Draft"}
+                            </td>
+                            <td className="px-4 py-4 text-center">
+                              <div className="flex items-center justify-center gap-3">
+                                <button
+                                  onClick={async () => {
+                                    setIsFetchingDetails(true);
+                                    try {
+                                      const res = await createPaperAPI.getDetails(test.id);
+                                      if (res?.success) {
+                                        setDetailsTest(normalizeTest(res.data.test));
+                                        setShowDetailsModal(true);
+                                      } else alert("Failed to load test details.");
+                                    } finally {
+                                      setIsFetchingDetails(false);
+                                    }
+                                  }}
+                                  className="text-[#3AB000] hover:text-[#2d8a00] transition-colors"
+                                  title="View"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    setIsFetchingDetails(true);
+                                    try {
+                                      const res = await createPaperAPI.getDetails(test.id);
+                                      if (res?.success) {
+                                        setEditingTest(normalizeTest(res.data.test));
+                                        setShowModal(true);
+                                      } else alert("Failed to load test for editing.");
+                                    } finally {
+                                      setIsFetchingDetails(false);
+                                    }
+                                  }}
+                                  className="text-[#3AB000] hover:text-blue-600 transition-colors"
+                                  title="Edit"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => toggleStatus(test.id)}
+                                  className={`transition-colors ${test.status === "published" ? "text-[#3AB000] hover:text-amber-600" : "text-[#3AB000] hover:text-[#2d8a00]"}`}
+                                  title={test.status === "published" ? "Move to Draft" : "Publish"}
+                                >
+                                  {test.status === "published" ? <Lock className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(test.id)}
+                                  className="text-[#3AB000] hover:text-red-600 transition-colors"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                          
+                          {/* Render Children (Accordion Content) */}
+                          {test.children && test.children.length > 0 && expandedRows.has(test.id) && (
+                            <tr>
+                              <td colSpan="7" className="p-0 border-b border-gray-100 bg-gray-50/80">
+                                <div className="px-10 py-3 pb-4">
+                                  <table className="w-full text-sm">
+                                    <tbody>
+                                      {test.children.map((child, cIdx) => (
+                                        <tr key={child.id} className="border-b border-gray-200/60 last:border-0 hover:bg-gray-100 transition-colors">
+                                          <td className="px-4 py-2 text-center text-gray-500 w-12 text-xs">
+                                            {cIdx + 1}
+                                          </td>
+                                          <td className="px-4 py-2 text-left text-gray-700 font-medium">
+                                            <span>{child.title}</span>
+                                            {renderBadge(child.rescheduleTarget)}
+                                          </td>
+                                          <td className="px-4 py-2 text-center text-gray-500 w-24 text-xs">
+                                            {child.totalQuestions} Q
+                                          </td>
+                                          <td className="px-4 py-2 text-center text-gray-500 w-24 text-xs">
+                                            {child.assignedStudents?.length || 0} Std
+                                          </td>
+                                          <td className="px-4 py-2 text-center text-gray-500 w-24 text-xs">
+                                            {child.duration} Min
+                                          </td>
+                                          <td className={`px-4 py-2 text-center text-xs font-semibold w-24 ${child.status === "published" ? "text-[#3AB000]" : "text-gray-400"}`}>
+                                            {child.status === "published" ? "Published" : "Draft"}
+                                          </td>
+                                          <td className="px-4 py-2 text-center w-32">
+                                            <div className="flex items-center justify-center gap-2">
+                                              <button onClick={async () => {
+                                                setIsFetchingDetails(true);
+                                                try {
+                                                  const res = await createPaperAPI.getDetails(child.id);
+                                                  if (res?.success) {
+                                                    setDetailsTest(normalizeTest(res.data.test));
+                                                    setShowDetailsModal(true);
+                                                  }
+                                                } finally { setIsFetchingDetails(false); }
+                                              }} className="text-gray-500 hover:text-[#2d8a00] p-1"><Eye size={14} /></button>
+                                              <button onClick={async () => {
+                                                setIsFetchingDetails(true);
+                                                try {
+                                                  const res = await createPaperAPI.getDetails(child.id);
+                                                  if (res?.success) {
+                                                    setEditingTest(normalizeTest(res.data.test));
+                                                    setShowModal(true);
+                                                  }
+                                                } finally { setIsFetchingDetails(false); }
+                                              }} className="text-gray-500 hover:text-blue-600 p-1"><Edit size={14} /></button>
+                                              <button onClick={() => toggleStatus(child.id)} className={`p-1 ${child.status === "published" ? "text-gray-500 hover:text-amber-600" : "text-gray-500 hover:text-[#2d8a00]"}`}>
+                                                {child.status === "published" ? <Lock size={14} /> : <Globe size={14} />}
+                                              </button>
+                                              <button onClick={() => handleDelete(child.id)} className="text-gray-500 hover:text-red-600 p-1"><Trash2 size={14} /></button>
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       ))}
                     </tbody>
                   )}

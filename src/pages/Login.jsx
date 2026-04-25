@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Eye, EyeOff, User, Lock, Phone, MessageSquare, CheckCircle2, ArrowRight } from "lucide-react";
+import { Eye, EyeOff, User, Lock, Phone, MessageSquare, CheckCircle2, ArrowRight, Briefcase, Shield, ChevronDown, CreditCard } from "lucide-react";
 import logo from "../assets/img0.png";
 import { useAuth } from "../auth/AuthProvider";
 import { roleHomePath } from "../auth/auth";
@@ -404,6 +404,7 @@ export default function JSSAbhiyanLogin() {
   const [otpSent, setOtpSent] = useState(false);
   const [otpValue, setOtpValue] = useState("");
   const [phoneValue, setPhoneValue] = useState("");
+  const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false);
 
   const handleInputChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -460,7 +461,7 @@ export default function JSSAbhiyanLogin() {
           role: user.role,
           token: token,
         });
-        navigate("/dashboard", { replace: true });
+        navigate(roleHomePath(user.role), { replace: true });
       } else if (response.error) {
         setError(response.error);
       } else {
@@ -488,10 +489,10 @@ export default function JSSAbhiyanLogin() {
       if (response.success) {
         setOtpSent(true);
       } else {
-        setError(response.message || "Wrong phone number");
+        setError(response.error || response.message || "Failed to send OTP");
       }
     } catch (err) {
-      setError(err.message || "Wrong phone number");
+      setError(err.message || "An error occurred while requesting OTP");
     } finally {
       setLoading(false);
     }
@@ -526,12 +527,12 @@ export default function JSSAbhiyanLogin() {
           role: user.role,
           token: token,
         });
-        navigate("/dashboard", { replace: true });
+        navigate(roleHomePath(user.role), { replace: true });
       } else {
-        setError(response.message || response.error || "Wrong OTP");
+        setError(response.error || response.message || "Verification failed");
       }
     } catch (err) {
-      setError(err.message || "Wrong OTP");
+      setError(err.message || "An error occurred during verification");
     } finally {
       setLoading(false);
     }
@@ -554,35 +555,80 @@ export default function JSSAbhiyanLogin() {
           {/* Form Fields */}
           <div className="space-y-6">
             <div>
-              <label className="block text-sm font-bold text-gray-800 mb-3">
+              <label className="block text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-[#3AB000]" />
                 Login as
               </label>
-              <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                {[
-                  { value: "applicant", label: "Applicant" },
-                  { value: "employee", label: "Employee" },
-                  { value: "admin", label: "Admin" },
-                ].map((opt) => {
-                  const active = formData.role === opt.value;
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => {
-                        setFormData((p) => ({ ...p, role: opt.value }));
-                      }}
-                      className="px-2 sm:px-4 py-3 rounded-xl border-2 text-[10px] sm:text-xs font-bold transition-all duration-200"
-                      style={{
-                        borderColor: active ? GREEN : "#e5e7eb",
-                        background: active ? "#fff" : "#fff",
-                        color: active ? "#000" : "#374151",
-                        boxShadow: active ? "inset 0 0 0 1px #3AB000" : "none"
-                      }}
-                    >
-                      {opt.label}
-                    </button>
-                  );
-                })}
+              <div className="relative" id="role-dropdown-container">
+                {/* Custom Dropdown Trigger */}
+                <button
+                  type="button"
+                  onClick={() => setIsRoleMenuOpen(!isRoleMenuOpen)}
+                  className="w-full pl-10 pr-10 py-3.5 bg-white border-2 border-gray-200 rounded-xl text-gray-800 text-sm font-bold text-left transition-all focus:outline-none focus:border-[#3AB000] focus:ring-4 focus:ring-green-500/10 cursor-pointer hover:border-gray-300 flex items-center gap-2 relative z-20"
+                  style={{ borderColor: isRoleMenuOpen ? GREEN : "#e5e7eb" }}
+                >
+                  <div className="absolute left-3 text-[#3AB000]">
+                    {formData.role === "applicant" && <User size={18} />}
+                    {formData.role === "employee" && <Briefcase size={18} />}
+                    {formData.role === "cardHolder" && <CreditCard size={18} />}
+                    {formData.role === "admin" && <Shield size={18} />}
+                  </div>
+                  <span>
+                    {formData.role === "applicant" ? "Applicant (अभ्यर्थी)" : 
+                     formData.role === "employee" ? "Employee (कर्मचारी)" : 
+                     formData.role === "cardHolder" ? "Card Holder (कार्ड धारक)" :
+                     "Administrator (व्यवस्थापक)"}
+                  </span>
+                  <div className="absolute right-3 transition-transform duration-300" style={{ transform: isRoleMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                    <ChevronDown size={18} className="text-gray-400" />
+                  </div>
+                </button>
+
+                {/* Custom Dropdown Menu */}
+                {isRoleMenuOpen && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-10" 
+                      onClick={() => setIsRoleMenuOpen(false)}
+                    />
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-[#3AB000]/20 rounded-2xl shadow-2xl overflow-hidden z-30 animate-in fade-in slide-in-from-top-2 duration-200">
+                      {[
+                        { value: "applicant", label: "Applicant", hindi: "अभ्यर्थी", icon: User },
+                        { value: "cardHolder", label: "Card Holder", hindi: "कार्ड धारक", icon: CreditCard },
+                        { value: "employee", label: "Employee", hindi: "कर्मचारी", icon: Briefcase },
+                      ].map((opt) => {
+                        const Icon = opt.icon;
+                        const active = formData.role === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => {
+                              setFormData(p => ({ ...p, role: opt.value }));
+                              setIsRoleMenuOpen(false);
+                            }}
+                            className="w-full px-4 py-3.5 flex items-center gap-3 transition-all duration-200 text-left group"
+                            style={{ 
+                              background: active ? `${GREEN}10` : "transparent",
+                              color: active ? GREEN : "#374151"
+                            }}
+                          >
+                            <div className={`p-2 rounded-lg transition-colors ${active ? 'bg-green-500 text-white' : 'bg-gray-50 text-gray-400 group-hover:bg-green-50 group-hover:text-green-500'}`}>
+                              <Icon size={16} />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-bold">{opt.label}</span>
+                              <span className={`text-[10px] font-medium ${active ? 'text-green-600/70' : 'text-gray-400'}`}>{opt.hindi}</span>
+                            </div>
+                            {active && (
+                              <div className="ml-auto w-1.5 h-1.5 rounded-full bg-green-500" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 

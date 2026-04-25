@@ -67,14 +67,6 @@ export default function TestHistory() {
         (h.testTitle === exam.title && h.totalMarks === exam.totalMarks)
       );
 
-      const lastAttempt = relevantHistory.length > 0
-        ? relevantHistory.reduce((latest, h) => {
-            if (!h.completedAt) return latest;
-            if (!latest) return h.completedAt;
-            return new Date(h.completedAt) > new Date(latest) ? h.completedAt : latest;
-          }, null)
-        : null;
-
       return {
         id: examId,
         title: exam.title,
@@ -83,7 +75,7 @@ export default function TestHistory() {
         duration: exam.duration,
         totalMarks: exam.totalMarks,
         count: (exam.attempts || 0) || relevantHistory.length,
-        lastAttempt: lastAttempt,
+        endDate: exam.endDate, // Added this field as requested
         status: exam.status === "published" ? "Active" : "Draft"
       };
     });
@@ -110,14 +102,11 @@ export default function TestHistory() {
             duration: h.duration,
             totalMarks: h.totalMarks,
             count: 0,
-            lastAttempt: h.completedAt,
+            endDate: null,
             status: "Active"
           };
         }
         orphanJobs[h.testTitle].count++;
-        if (new Date(h.completedAt) > new Date(orphanJobs[h.testTitle].lastAttempt)) {
-          orphanJobs[h.testTitle].lastAttempt = h.completedAt;
-        }
       }
     });
 
@@ -358,10 +347,10 @@ export default function TestHistory() {
                       </div>
                       <div className="flex items-center gap-4 sm:flex-shrink-0 pl-12 sm:pl-0">
                         <div className="text-xs text-gray-500">
-                          Last:{" "}
+                          Expiry:{" "}
                           <span className="font-medium text-gray-700">
-                            {job.lastAttempt ? (
-                              new Date(job.lastAttempt).toLocaleDateString(
+                            {job.endDate ? (
+                              new Date(job.endDate).toLocaleDateString(
                                 "en-IN",
                                 {
                                   day: "numeric",
@@ -370,7 +359,7 @@ export default function TestHistory() {
                                 },
                               )
                             ) : (
-                              <span className="text-gray-400">Never</span>
+                              <span className="text-gray-400">No Limit</span>
                             )}
                           </span>
                         </div>

@@ -21,6 +21,7 @@ import {
   Calendar,
   Send,
   MapPin,
+  UserPlus,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 
@@ -142,6 +143,7 @@ const Sidebar = () => {
         { name: "Scroller", icon: Film, path: "/scroller" },
         { name: "Notifications", icon: Bell, path: "/notifications-manage" },
         { name: "Notice", icon: Bell, path: "/notice" },
+        { name: "Transactions", icon: CreditCard, path: "/admin/transactions" },
         { name: "Payment Settings", icon: CreditCard, path: "/settings" },
         {
           name: "Exam Management",
@@ -161,12 +163,18 @@ const Sidebar = () => {
           children: [
             { name: "MOU", icon: ScrollText, path: "/admin/mou" },
             { name: "Fee Structure", icon: CreditCard, path: "/admin/fee-structure" },
+            { name: "Add Employee", icon: UserPlus, path: "/admin/employees" },
           ],
         },
         {
           name: "Location Management",
           icon: MapPin,
           path: "/admin/location-management"
+        },
+        {
+          name: "Admin Auth",
+          icon: Shield,
+          path: "/admin/management"
         },
         // {
         //   name: "Settings",
@@ -182,6 +190,13 @@ const Sidebar = () => {
         //   ],
         // },
       );
+    }
+
+    if (role === "cardHolder") {
+      return [
+        { name: "My Identity Card", icon: CreditCard, path: "/my-card" },
+        { name: "Logout", icon: LogOut, path: "/logout" },
+      ];
     }
 
     if (role === "employee") {
@@ -266,28 +281,36 @@ const Sidebar = () => {
       >
         {/* ── Header ── */}
         <div
-          className="px-4 py-4 mx-3 mt-3 rounded-xl shadow-md"
+          className="px-4 pt-4 pb-8 mb-6 relative overflow-hidden group shadow-md"
           style={{
-            background: `linear-gradient(135deg, ${GREEN} 0%, ${GREEN_DARK} 100%)`,
+            background: "linear-gradient(135deg, rgb(58, 176, 0) 0%, rgb(45, 138, 0) 100%)",
           }}
         >
-          <div className="flex items-center justify-center">
-            <img
-              src={logo}
-              alt="Logo"
-              className="w-55 h-33 object-contain"
-              style={{ filter: "brightness(0.6)" }}
-            />
-          </div>
-          {/* Role badge */}
-          <div className="mt-2 flex items-center gap-1.5">
-            <span className="text-[10px] text-green-100 font-medium bg-white/20 px-2 py-0.5 rounded-full">
-              {role === "admin"
-                ? "Admin"
-                : role === "applicant"
-                  ? "Applicant"
-                  : "Employee"}
-            </span>
+          {/* Decorative background accent */}
+          <div className="absolute -right-2 -top-2 w-32 h-32 bg-white/5 rounded-full blur-3xl" />
+          
+          <div className="relative z-10 flex flex-col items-center">
+            <div className="bg-white p-2 rounded-xl shadow-xl w-full mb-6 transition-transform duration-300 group-hover:scale-[1.02]">
+              <img
+                src={logo}
+                alt="Logo"
+                className="w-full h-auto max-h-40 object-contain"
+              />
+            </div>
+            
+            {/* Role badge */}
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+              <span className="text-[12px] text-[#2d8a00] font-black tracking-widest uppercase bg-white px-4 py-1.5 rounded-lg shadow-lg border border-white/20">
+                {role === "admin"
+                  ? "Admin Panel"
+                  : role === "applicant"
+                    ? "Candidate"
+                    : role === "cardHolder"
+                      ? "Member Portal"
+                      : "Employee Portal"}
+              </span>
+            </div>
           </div>
         </div>
 

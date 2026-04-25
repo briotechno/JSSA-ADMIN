@@ -441,6 +441,7 @@ const BlockManagement = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [isCleaning, setIsCleaning] = useState(false);
   const itemsPerPage = 13;
 
   const loadData = async () => {
@@ -503,6 +504,25 @@ const BlockManagement = () => {
         alert("Server error");
       } finally {
         setIsLoading(false);
+      }
+    }
+  };
+
+  const handleDeduplicate = async () => {
+    if (window.confirm("This will merge all blocks with the same name, district, and state. Associated panchayats will be re-linked. Continue?")) {
+      setIsCleaning(true);
+      try {
+        const res = await locationAPI.deduplicate();
+        if (res && res.success) {
+          alert(`Success! Deleted ${res.stats.blocksDeleted} duplicate blocks and ${res.stats.panchayatsDeleted} duplicate panchayats.`);
+          loadData();
+        } else {
+          alert(res?.error || "Deduplication failed");
+        }
+      } catch (err) {
+        alert("Server error during deduplication");
+      } finally {
+        setIsCleaning(false);
       }
     }
   };
@@ -588,6 +608,14 @@ const BlockManagement = () => {
                 <Trash2 size={16} /> Delete Selected ({selectedIds.length})
               </button>
             )}
+            <button
+              onClick={handleDeduplicate}
+              disabled={isCleaning}
+              className="bg-amber-500 hover:bg-amber-600 text-white text-xs sm:text-sm font-medium px-4 sm:px-6 py-2.5 rounded-sm transition-colors whitespace-nowrap flex items-center justify-center gap-2 shadow-md disabled:opacity-50"
+              title="Merge duplicate blocks and panchayats"
+            >
+              {isCleaning ? "Cleaning..." : "Clean Duplicates"}
+            </button>
             <button
               onClick={() => { setSelectedBlock(null); setIsModalOpen(true); }}
               className="bg-black hover:bg-[#3AB000] text-white text-xs sm:text-sm font-medium px-4 sm:px-6 py-2.5 rounded-sm transition-colors whitespace-nowrap w-full sm:w-auto flex items-center justify-center gap-2"

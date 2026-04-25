@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import DashboardLayout from "../../components/DashboardLayout";
-import { createPaperAPI } from "../../utils/api";
+import { createPaperAPI, applicationsAPI, feeStructureAPI, employeesAPI } from "../../utils/api";
 import { useAuth } from "../../auth/AuthProvider";
 import logo from "../../assets/JSSAogo.png";
+import logoLong from "../../assets/jssa-logo-long.png";
 import sing from "../../assets/docs/district_manger/sing.png";
+import QrCode from '../../assets/QrCode.png'
 
 import {
   Loader2,
@@ -30,12 +32,12 @@ const cleanImageUrl = (url) => {
   return url;
 };
 
-const AuthorizationTemplate = ({ application, formData, empId, logo, templateRef }) => {
+const AuthorizationTemplate = ({ application, formData, empId, logo, templateRef, detectedPost }) => {
   const currentDate = new Date().toLocaleDateString();
-  const post = application?.post || "District Manager";
-
+  const post = detectedPost || application?.post || application?.jobPostingId?.post?.en || "district manager";
+  console.log(detectedPost)
   const postDetails = {
-    "District Manager": {
+    "district manager": {
       refPrefix: "AL",
       subj: "DISTRICT Manager",
       offer: "DISTRICT Manager",
@@ -45,7 +47,7 @@ const AuthorizationTemplate = ({ application, formData, empId, logo, templateRef
       cardRate: "₹127 for each card created by you, and ₹10 per card for each card created by the Panchayat Executive and Block Supervisor of your district.",
       footerCode: "mou_2933 District Manager"
     },
-    "Block Supervisor": {
+    "block supervisor cum panchayat executive": {
       refPrefix: "BR/BSCPE",
       subj: "Block Supervisor Cum Panchayat Executive",
       offer: "Block Supervisor cum Panchayat Executive",
@@ -55,7 +57,7 @@ const AuthorizationTemplate = ({ application, formData, empId, logo, templateRef
       cardRate: "₹73 for each card created by you, and ₹10 per card for each card created by the Panchayat Executive of your Block. This amount will be credited to your wallet.",
       footerCode: "mou_2933 Block Supervisor HR"
     },
-    "Panchayat Executive": {
+    "panchayat executive": {
       refPrefix: "BR/PE",
       subj: "Panchayat Executive",
       offer: "Panchayat Executive",
@@ -67,22 +69,18 @@ const AuthorizationTemplate = ({ application, formData, empId, logo, templateRef
     }
   };
 
-  const details = postDetails[post] || postDetails["District Manager"];
-  const displayId = application?.employeeId || `JSSA/${details.refPrefix}/${empId}`;
+  const details = postDetails[post?.toLowerCase()] || postDetails["district manager"];
+  const displayId = empId;
 
   return (
     <div className="p-12 text-[12px] leading-relaxed text-gray-800 font-sans bg-white border" ref={templateRef}>
-      <div className="mb-0 text-left">
+      <div className="mb-0 -mt-6 text-left">
         <div className="text-[11px] font-bold">Ref. No. <span className="text-gray-900 uppercase font-black tracking-tighter">{displayId}</span></div>
       </div>
 
-      <div className="text-center mb-10 -mt-4">
-        <img src={logo} alt="JSSA Logo" className="h-20 mx-auto mb-2" />
-        <div className="text-2xl font-black text-green-700 font-hindi mb-1 leading-tight text-center">जन स्वास्थ्य सहायता अभियान</div>
-        <div className="text-[11px] font-black text-green-800 uppercase tracking-wide text-center">Jan Swasthya Sahayata Abhiyan</div>
-        <div className="text-[9px] text-gray-600 font-bold uppercase text-center">A Project of Healthcare Research & Development Board</div>
-        <div className="text-[8px] text-gray-500 font-medium text-center">Organised Under “NAC”, Registration. No. 053083</div>
-        <div className="w-full h-[3px] bg-gradient-to-r from-green-200 via-green-600 to-green-200 mt-2"></div>
+      <div className="text-center mb-8  mt-3">
+        <img src={logoLong} alt="JSSA Header" className="w-full max-w-[450px] mx-auto" />
+        <div className="w-full h-[1px] bg-green-500/30 mt-4"></div>
       </div>
 
       <h2 className="text-center text-lg font-black underline mb-10 uppercase tracking-widest">Letter of Authorization</h2>
@@ -198,24 +196,24 @@ const AuthorizationTemplate = ({ application, formData, empId, logo, templateRef
   );
 };
 
-const ConsentTemplate = ({ application, formData, empId, logo, templateRef }) => {
+const ConsentTemplate = ({ application, formData, empId, logo, templateRef, detectedPost }) => {
   const currentDate = new Date().toLocaleString();
-  const post = application?.post || "District Manager";
+  const post = detectedPost || application?.post || application?.jobPostingId?.post?.en || "district manager";
 
   const postConfigs = {
-    "District Manager": {
+    "district manager": {
       consentPost: "DISTRICT MANAGER",
       pointPost: "DISTRICT MANAGER",
       execPost: "DISTRICT MANAGER",
       footerPost: "DISTRICT MANAGER"
     },
-    "Block Supervisor": {
+    "block supervisor cum panchayat executive": {
       consentPost: "Block Supervisor cum Panchayat Executive",
       pointPost: "Block Supervisor cum Panchayat Executive",
       execPost: "Block Supervisor cum Panchayat Executive",
       footerPost: "Block Supervisor"
     },
-    "Panchayat Executive": {
+    "panchayat executive": {
       consentPost: "Panchayat Executive",
       pointPost: "Panchayat Executive",
       execPost: "Panchayat Executive",
@@ -223,7 +221,7 @@ const ConsentTemplate = ({ application, formData, empId, logo, templateRef }) =>
     }
   };
 
-  const config = postConfigs[post] || postConfigs["District Manager"];
+  const config = postConfigs[post?.toLowerCase()] || postConfigs["district manager"];
 
   const points = [
     `Selection is being done by the social service organization NAC (which is registered under the Companies Act 2013 (section 8)) under JAN SWASTHYA SAHAYATA ABHIYAN against the post of ${config.pointPost}`,
@@ -254,13 +252,9 @@ const ConsentTemplate = ({ application, formData, empId, logo, templateRef }) =>
         <div className="text-[11px] font-bold uppercase">Ref. No. <span className="text-gray-900 font-black">JSSA/LC/{empId.split('/').pop()}</span></div>
       </div>
 
-      <div className="text-center mb-8 -mt-4">
-        <img src={logo} alt="JSSA Logo" className="h-20 mx-auto mb-2" />
-        <div className="text-2xl font-black text-green-700 font-hindi mb-1 leading-tight text-center">जन स्वास्थ्य सहायता अभियान</div>
-        <div className="text-[11px] font-black text-green-800 uppercase tracking-wide">Jan Swasthya Sahayata Abhiyan</div>
-        <div className="text-[9px] text-gray-600 font-bold uppercase">A Project of Healthcare Research & Development Board</div>
-        <div className="text-[8px] text-gray-500 font-medium tracking-tighter text-center">Organised Under "NAC", Registration. No. 053083</div>
-        <div className="w-full h-[3px] bg-gradient-to-r from-green-200 via-green-600 to-green-200 mt-2"></div>
+      <div className="text-center mb-8  mt-3">
+        <img src={logoLong} alt="JSSA Header" className="w-full max-w-[450px] mx-auto" />
+        <div className="w-full h-[1px] bg-green-500/30 mt-4"></div>
       </div>
 
       <h2 className="text-center text-lg font-black underline mb-6 uppercase tracking-widest">Letter of Consent</h2>
@@ -312,7 +306,7 @@ const ConsentTemplate = ({ application, formData, empId, logo, templateRef }) =>
         </div>
 
         <div className="text-right space-y-1 pr-4">
-          <div className="w-52 h-28 mb-4 flex items-center justify-center border-2 border-dashed border-sky-100 bg-sky-50/20 rounded-xl overflow-hidden shadow-inner">
+          <div className="w-52 h-28 mb-4 flex items-center ml-16 justify-center border-2 border-dashed border-sky-100 bg-sky-50/20 rounded-xl overflow-hidden shadow-inner">
             <img src={application?.signature} alt="Sign" className="max-w-full max-h-full mix-blend-multiply transition-all grayscale contrast-150" />
           </div>
           <div className="text-[14px] font-black text-gray-900 uppercase tracking-tighter underline underline-offset-4 decoration-gray-200">
@@ -330,24 +324,25 @@ const ConsentTemplate = ({ application, formData, empId, logo, templateRef }) =>
   );
 };
 
-const MOUTemplate = ({ application, formData, empId, logo, templateRef }) => {
+const MOUTemplate = ({ application, formData, empId, logo, templateRef, detectedPost }) => {
   const currentDate = new Date().toLocaleDateString();
-  const post = application?.post || "District Manager";
 
+  const post = detectedPost || application?.post || application?.jobPostingId?.post?.en || "district manager";
+  console.log(post)
   const postConfigs = {
-    "District Manager": {
+    "district manager": {
       mouPost: "DISTRICT Manager",
       execPost: "DISTRICT MANAGER",
       workLoc: `${formData.district} District (${formData.state})`,
       salary: "Rs 25,500 monthly"
     },
-    "Block Supervisor": {
+    "block supervisor cum panchayat executive": {
       mouPost: "Block Supervisor cum Panchayat Executive",
       execPost: "Block Supervisor Cum Panchayat Executive",
       workLoc: `${formData.block} Block, ${formData.district} District (${formData.state})`,
       salary: "Rs 14,500 monthly"
     },
-    "Panchayat Executive": {
+    "panchayat executive": {
       mouPost: "Panchayat Executive",
       execPost: "Panchayat Executive",
       workLoc: `${formData.villageTola || 'Dausa'} Panchayat, ${formData.block || 'Dausa'} Block, ${formData.district || 'Dausa'} District (${formData.state || 'Rajasthan'})`,
@@ -355,7 +350,7 @@ const MOUTemplate = ({ application, formData, empId, logo, templateRef }) => {
     }
   };
 
-  const config = postConfigs[post] || postConfigs["District Manager"];
+  const config = postConfigs[post?.toLowerCase()] || postConfigs["district manager"];
 
   return (
     <div className="text-[11px] leading-relaxed text-gray-800 font-sans" ref={templateRef}>
@@ -366,13 +361,9 @@ const MOUTemplate = ({ application, formData, empId, logo, templateRef }) => {
         </div>
 
         {/* Centered Header */}
-        <div className="text-center mb-10 -mt-4">
-          <img src={logo} alt="JSSA Logo" className="h-20 mx-auto mb-2" />
-          <div className="text-2xl font-black text-green-700 font-hindi mb-1 leading-tight">जन स्वास्थ्य सहायता अभियान</div>
-          <div className="text-[11px] font-black text-green-800 uppercase tracking-wide">Jan Swasthya Sahayata Abhiyan</div>
-          <div className="text-[9px] text-gray-600 font-bold uppercase">A Project of Healthcare Research & Development Board</div>
-          <div className="text-[8px] text-gray-500 font-medium tracking-tighter">Organised Under “NAC”, Registration. No. 053083</div>
-          <div className="w-full h-[3px] bg-gradient-to-r from-green-200 via-green-600 to-green-200 mt-2"></div>
+        <div className="text-center mb-8  mt-3">
+          <img src={logoLong} alt="JSSA Header" className="w-full max-w-[450px] mx-auto" />
+          <div className="w-full h-[1px] bg-green-500/30 mt-4"></div>
         </div>
 
         <h2 className="text-center text-lg font-black underline mb-8 uppercase tracking-widest">Memorandum Of Understanding Cum Agreement</h2>
@@ -637,87 +628,78 @@ const MOUTemplate = ({ application, formData, empId, logo, templateRef }) => {
   );
 };
 
-const IDCardTemplate = ({ application, formData, empId, logo, templateRef }) => {
+const IDCardTemplate = ({ application, formData, empId, logo, templateRef, detectedPost }) => {
   const postLabels = {
-    "District Manager": "DISTRICT MANAGER",
-    "Block Supervisor": "BLOCK SUPERVISOR",
-    "Panchayat Executive": "PANCHAYAT EXECUTIVE"
+    "district manager": "DISTRICT MANAGER",
+    "block supervisor cum panchayat executive": "BLOCK SUPERVISOR CUM PANCHAYAT EXECUTIVE",
+    "panchayat executive": "PANCHAYAT EXECUTIVE"
   };
-  const designation = postLabels[application?.post] || postLabels["District Manager"];
+  const post = detectedPost || application?.post || application?.jobPostingId?.post?.en || "district manager";
+  const designation = postLabels[post?.toLowerCase()] || postLabels["district manager"];
 
   return (
     <div className="flex justify-center items-center py-6 bg-gray-50 rounded-xl">
-      <div className="w-[320px] h-[600px] bg-[#C5E9F9] rounded-lg overflow-hidden shadow-2xl relative flex flex-col font-sans border border-gray-300" ref={templateRef}>
+      <div className="w-[320px] h-[550px] bg-[#C5E9F9] rounded-lg overflow-hidden shadow-2xl relative flex flex-col font-sans border border-gray-300" ref={templateRef}>
 
         {/* Header */}
-        <div className="p-3 flex items-center gap-2 bg-[#C5E9F9]">
-          <img src={logo} alt="Logo" className="w-12 h-12 object-contain bg-white rounded-full p-1 border border-green-500 shadow-sm" />
-          <div className="flex-1">
-            <div className="text-[13px] font-black text-[#1B5E20] leading-tight tracking-tighter">JAN SWASTHYA SAHAYATA ABHIYAN</div>
-            <div className="text-[7px] font-bold text-black leading-tight">A Project of Healthcare Research & Development Board</div>
-            <div className="text-[6.5px] font-medium text-black">Organisation "NAC", Registration. No. : 053083</div>
-          </div>
+        <div className="p-2 bg-white flex justify-center items-center">
+          <img src={logoLong} alt="Logo" className="h-10 object-contain" />
         </div>
 
         {/* Photo Section */}
-        <div className="flex-1 relative flex flex-col items-center pt-4 pb-4">
+        <div className="relative flex flex-col items-center pt-3 pb-2">
           <div className="z-20 w-32 h-36 bg-white border-[3px] border-black shadow-xl overflow-hidden rounded-sm">
             <img src={cleanImageUrl(application?.photo)} alt="Identity" className="w-full h-full object-cover" />
           </div>
         </div>
 
         {/* Curved Green Wave */}
-        <div className="w-full bg-[#1B9E4B] rounded-t-[80px_80px] flex flex-col items-center justify-center py-6 px-4 z-10 shadow-[0_-10px_20px_rgba(0,0,0,0.1)]">
-          <div className="text-white text-[18px] font-black uppercase tracking-wide text-center leading-snug whitespace-normal break-words">
+        <div className="w-full bg-[#1B9E4B] flex flex-col items-center justify-center py-4 px-4 z-10 shadow-[0_-5px_15px_rgba(0,0,0,0.1)]">
+          <div className="text-white text-[14px] font-black uppercase tracking-tight text-center leading-tight">
             {application?.candidateName}
           </div>
-          <div className="text-white text-[16px] font-black uppercase mt-1 tracking-wider text-center">
+          <div className="text-white text-[10px] font-bold uppercase mt-0.5 tracking-wider text-center opacity-90">
             {designation}
           </div>
         </div>
 
         {/* Details Section */}
-        <div className="bg-[#C5E9F9] px-6 pb-4 pt-10 z-0">
-          <div className="space-y-1 text-[10px] font-bold text-gray-800">
-            <div className="flex">
-              <span className="w-24">Father Name:</span>
+        <div className="bg-[#C5E9F9] px-6 pb-4 pt-5 z-0 flex-1">
+          <div className="space-y-1.5 text-[11px] font-bold text-gray-800">
+            <div className="flex border-b border-blue-200/50 pb-0.5">
+              <span className="w-24 text-gray-500 text-[10px]">Father Name:</span>
               <span className="flex-1 uppercase">{application?.fatherName}</span>
             </div>
-            <div className="flex text-black">
-              <span className="w-24">ID No. :</span>
+            <div className="flex border-b border-blue-200/50 pb-0.5 text-black">
+              <span className="w-24 text-gray-500 text-[10px]">ID No. :</span>
               <span className="flex-1 font-black">{empId}</span>
             </div>
-            <div className="flex">
-              <span className="w-24">Date of Birth :</span>
+            <div className="flex border-b border-blue-200/50 pb-0.5">
+              <span className="w-24 text-gray-500 text-[10px]">Date of Birth :</span>
               <span className="flex-1">{application?.dob ? new Date(application.dob).toLocaleDateString() : '—'}</span>
             </div>
-            <div className="flex">
-              <span className="w-24">Email ID :</span>
-              <span className="flex-1 text-[9px] lowercase opacity-80">{application?.email || '—'}</span>
+            <div className="flex border-b border-blue-200/50 pb-0.5">
+              <span className="w-24 text-gray-500 text-[10px]">Email ID :</span>
+              <span className="flex-1 text-[10px] lowercase opacity-80">{application?.email || '—'}</span>
             </div>
             <div className="flex">
-              <span className="w-24">Location :</span>
-              <span className="flex-1 uppercase italic">{formData.district}, {formData.state}</span>
+              <span className="w-24 text-gray-500 text-[10px]">Location :</span>
+              <span className="flex-1 uppercase italic leading-tight text-[10px]">{formData.district}, {formData.state}</span>
             </div>
           </div>
 
           {/* Footer info */}
-          <div className="mt-6 flex justify-between items-end">
+          <div className="mt-4 flex justify-between items-end border-t border-blue-200/50 pt-3">
             <div className="space-y-0.5">
-              <div className="text-blue-700 text-[9px] font-black underline italic mb-1">For Any Enquiry :</div>
-              <div className="text-[7.5px] font-bold text-gray-600 leading-tight">
-                support@jssabhiyan-nac.in<br />
-                www.jssabhiyan-nac.in<br />
+              <div className="text-blue-700 text-[9px] font-black underline italic mb-1 uppercase tracking-tighter">For Any Enquiry :</div>
+              <div className="text-[9px] font-bold text-gray-600 leading-tight">
+                support@jssabhiyan.com<br />
+                www.jssabhiyan.com<br />
                 +91 - 9471987611
               </div>
             </div>
-            <div className="w-16 h-16 bg-white p-1 border border-gray-300 rounded shadow-sm">
-              <div className="w-full h-full bg-gray-50 flex flex-wrap gap-[1px] p-0.5 opacity-80">
-                {/* Decorative QR Pattern */}
-                {Array.from({ length: 49 }).map((_, i) => (
-                  <div key={i} className={`w-[6px] h-[6px] ${Math.random() > 0.5 ? 'bg-black' : 'bg-transparent'}`} />
-                ))}
-              </div>
+            <div className="w-14 h-14 bg-white p-1 border border-gray-300 rounded shadow-sm overflow-hidden flex items-center justify-center">
+              <img src={QrCode} className="w-full h-full object-contain" />
             </div>
           </div>
         </div>
@@ -732,8 +714,14 @@ const IDCardTemplate = ({ application, formData, empId, logo, templateRef }) => 
 const EmployeeLetters = () => {
   const [loading, setLoading] = useState(true);
   const [application, setApplication] = useState(null);
-  const [formData, setFormData] = useState(null);
   const [empId, setEmpId] = useState("");
+  const [detectedPostName, setDetectedPostName] = useState("");
+  const [formData, setFormData] = useState({
+    state: "N/A",
+    district: "N/A",
+    block: "N/A",
+    villageTola: "N/A"
+  });
   const { user } = useAuth();
   const [viewingDoc, setViewingDoc] = useState(null);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -747,19 +735,128 @@ const EmployeeLetters = () => {
 
   useEffect(() => {
     const fetchDocData = async () => {
+      setLoading(true);
       try {
-        const res = await createPaperAPI.getAssigned();
-        if (res.success && res.data.tests?.length > 0) {
-          const app = res.data.tests[0].userAttempt?.applicationId;
-          if (app) {
-            setApplication(app);
-            setFormData({
-              state: app.state || "N/A",
-              district: app.district || "N/A",
-              block: app.blockKhand || "N/A",
-              villageTola: app.villageTola || "N/A"
-            });
-            setEmpId(app.employeeId || app._id.slice(-6).toUpperCase());
+        const [examsRes, empRes] = await Promise.allSettled([
+          createPaperAPI.getAssigned(),
+          employeesAPI.getMe()
+        ]);
+
+        let app = null;
+        let bestTest = null;
+        let isManualEmployee = false;
+
+        // 1. Fetch from manual employee profile first (authoritative for manual hires)
+        if (empRes.status === "fulfilled" && empRes.value?.success && empRes.value?.data) {
+          const ep = empRes.value.data;
+          isManualEmployee = true;
+          app = {
+            ...ep,
+            candidateName: ep.name,
+            applicationNumber: ep._id?.slice(-8).toUpperCase(), // Mock app number for letters
+            employeeId: `JSSA/EMP/${ep._id?.slice(-6).toUpperCase()}`,
+            post: ep.jobPostingId?.title || ep.jobPostingId?.post?.en || "",
+            // Map fields for templates
+            block: ep.blockKhand,
+            panchayat: ep.gramPanchayat,
+            address: ep.villageTola
+          };
+        }
+
+        // 2. Fetch from exam-based application (more authoritative for exam hires)
+        if (examsRes.status === "fulfilled" && examsRes.value?.success && examsRes.value?.data?.tests?.length > 0) {
+
+          const tests = examsRes.value.data.tests;
+
+          bestTest = tests.find(t => t.userAttempt?.applicationId?.employeeId);
+          if (!bestTest) bestTest = tests.find(t => t.userAttempt);
+          if (!bestTest) bestTest = tests[0];
+
+          let testApp = bestTest?.userAttempt?.applicationId;
+          if (!testApp) {
+            const testWithApp = tests.find(t => t.userAttempt?.applicationId);
+            if (testWithApp) testApp = testWithApp.userAttempt.applicationId;
+          }
+
+          if (testApp) {
+            app = { ...app, ...testApp };
+            isManualEmployee = false; // We have an exam application, so override
+          }
+        }
+
+        if (app) {
+          // --- ROBUST MATCHING FOR POST NAME ---
+          let targetPostEn = "";
+
+          if (isManualEmployee) {
+            const getManualDetectedPost = (obj) => {
+              const searchFields = [
+                obj?.post,
+                obj?.jobPostingId?.title,
+                obj?.jobPostingId?.post?.en
+              ];
+
+              for (const field of searchFields) {
+                if (field && typeof field === 'string') {
+                  const t = field.toLowerCase();
+                  if (t.includes("district manager")) return "District Manager";
+                  if (t.includes("block supervisor")) return "Block Supervisor Cum Panchayat Executive";
+                  if (t.includes("panchayat executive")) return "Panchayat Executive";
+                }
+              }
+              return null;
+            };
+
+            targetPostEn = getManualDetectedPost(app);
+          } else if (!isManualEmployee && bestTest) {
+            const getDetectedPost = (obj) => {
+              if (obj?.post?.en) return obj.post.en;
+              if (obj?.postTitle?.en) return obj.postTitle.en;
+              if (obj?.title) {
+                const t = obj.title.toLowerCase();
+                if (t.includes("district manager")) return "District Manager";
+                if (t.includes("block supervisor")) return "Block Supervisor Cum Panchayat Executive";
+                if (t.includes("panchayat executive")) return "Panchayat Executive";
+              }
+              return null;
+            };
+
+            targetPostEn = getDetectedPost(bestTest) || bestTest.post?.en || bestTest.postTitle?.en || "";
+            if (!targetPostEn && bestTest.title) {
+              const lowerTitle = bestTest.title.toLowerCase();
+              if (lowerTitle.includes("district manager")) targetPostEn = "District Manager";
+              else if (lowerTitle.includes("block supervisor")) targetPostEn = "Block Supervisor Cum Panchayat Executive";
+              else if (lowerTitle.includes("panchayat executive")) targetPostEn = "Panchayat Executive";
+            }
+          }
+
+          if (!targetPostEn) {
+            targetPostEn = app.post || app.jobPostingId?.title || app.jobPostingId?.post?.en || "District Manager";
+          }
+
+          setDetectedPostName(targetPostEn);
+          setApplication(app);
+
+          setFormData({
+            state: app.state || "N/A",
+            district: app.district || "N/A",
+            block: app.blockKhand || app.block || "N/A",
+            villageTola: app.villageTola || app.address || "N/A"
+          });
+
+          // --- UNIFIED PROPER ID GENERATION ---
+          if (app.employeeId) {
+            setEmpId(app.employeeId);
+          } else {
+            const postCodes = {
+              "District Manager": "DM",
+              "Block Supervisor Cum Panchayat Executive": "BSCPE",
+              "Panchayat Executive": "PE"
+            };
+            const postKey = app.jobPostingId?.post?.en || app.jobTitle || app.post || targetPostEn;
+            const code = postCodes[postKey] || "DM";
+            const shortId = app._id ? app._id.slice(-6).toUpperCase() : "XXXXXX";
+            setEmpId(`JSSA/BR/${code}/${shortId}`);
           }
         }
       } catch (err) {
@@ -1003,6 +1100,7 @@ const EmployeeLetters = () => {
                       formData={formData}
                       empId={empId}
                       logo={logo}
+                      detectedPost={detectedPostName}
                       templateRef={viewingDoc === 'auth' ? authTemplateRef : viewingDoc === 'consent' ? consentTemplateRef : viewingDoc === 'mou' ? mouTemplateRef : idCardTemplateRef}
                     />
                   )}
@@ -1022,6 +1120,7 @@ const EmployeeLetters = () => {
                   formData={formData}
                   empId={empId}
                   logo={logo}
+                  detectedPost={detectedPostName}
                   templateRef={authTemplateRef}
                 />
                 <ConsentTemplate
@@ -1029,6 +1128,7 @@ const EmployeeLetters = () => {
                   formData={formData}
                   empId={empId}
                   logo={logo}
+                  detectedPost={detectedPostName}
                   templateRef={consentTemplateRef}
                 />
                 <MOUTemplate
@@ -1036,6 +1136,7 @@ const EmployeeLetters = () => {
                   formData={formData}
                   empId={empId}
                   logo={logo}
+                  detectedPost={detectedPostName}
                   templateRef={mouTemplateRef}
                 />
                 <IDCardTemplate
@@ -1043,6 +1144,7 @@ const EmployeeLetters = () => {
                   formData={formData}
                   empId={empId}
                   logo={logo}
+                  detectedPost={detectedPostName}
                   templateRef={idCardTemplateRef}
                 />
               </>

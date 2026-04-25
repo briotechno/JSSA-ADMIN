@@ -23,7 +23,7 @@ import {
   Save
 
 } from "lucide-react";
-import { createPaperAPI, feeStructureAPI, mouAPI, uploadAPI, locationAPI } from "../../utils/api";
+import { createPaperAPI, feeStructureAPI, mouAPI, uploadAPI, locationAPI, applicationsAPI } from "../../utils/api";
 import { useAuth } from "../../auth/AuthProvider";
 import indianStates from "../../data/states.json";
 import indianDistricts from "../../data/district.json";
@@ -433,10 +433,7 @@ const MOUForm = () => {
     const file = e.target.files[0];
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      alert("File size should be less than 2MB");
-      return;
-    }
+    // Removed 2MB size restriction as per user request
 
     setUploadingDoc(type);
     try {
@@ -459,24 +456,80 @@ const MOUForm = () => {
       setLoading(true);
       setError(null);
       try {
-        const [examsRes, feeRes] = await Promise.all([
+        const [examsRes, feeRes, allAppsRes] = await Promise.all([
           createPaperAPI.getAssigned(),
-          feeStructureAPI.getAll()
+          feeStructureAPI.getAll(),
+          applicationsAPI.getAll({ limit: 0 })
         ]);
 
         if (examsRes.success && examsRes.data.tests) {
-          const currentExam = examsRes.data.tests.find(t => t._id === id || t.id === id);
+          const currentExam = examsRes.data.tests.find(t => t.id === id);
 
           if (currentExam) {
             setExam(currentExam);
-            const app = currentExam.userAttempt?.applicationId;
+
+            // --- ROBUST APPLICATION MATCHING ---
+            let app = currentExam.userAttempt?.applicationId;
+
+            // Extract target post name more aggressively
+            let targetPostEn = currentExam.post?.en || currentExam.postTitle?.en || "";
+            if (!targetPostEn && currentExam.title) {
+              const lowerTitle = currentExam.title.toLowerCase();
+              if (lowerTitle.includes("district manager")) targetPostEn = "District Manager";
+              else if (lowerTitle.includes("block supervisor")) targetPostEn = "Block Supervisor Cum Panchayat Executive";
+              else if (lowerTitle.includes("panchayat executive")) targetPostEn = "Panchayat Executive";
+              else {
+                // Fallback: try to extract from "Post of [Name]"
+                const match = currentExam.title.match(/Post of ([^Advt]+)/i);
+                if (match) targetPostEn = match[1].trim();
+              }
+            }
+
+            // console.log("🎯 MOU Target Post:", targetPostEn);
+
+            // Verify if the linked app matches the exam's post. 
+            // If mismatch found, or if app is missing, try to recover from all applications.
+            const currentAppPost = app?.jobPostingId?.post?.en || app?.jobTitle || "";
+            const isMismatch = app && targetPostEn &&
+              !targetPostEn.toLowerCase().includes(currentAppPost.toLowerCase()) &&
+              !currentAppPost.toLowerCase().includes(targetPostEn.toLowerCase());
+
+            if (!app || isMismatch) {
+              // console.log("🔍 MOU Match: Recovery started for:", targetPostEn);
+              const matchingApp = allAppsRes.data?.applications
+                ?.filter(a => {
+                  const appPostEn = a.jobPostingId?.post?.en || a.jobTitle || a.post || "";
+                  return (appPostEn && targetPostEn && (
+                    appPostEn.toLowerCase().includes(targetPostEn.toLowerCase()) ||
+                    targetPostEn.toLowerCase().includes(appPostEn.toLowerCase())
+                  ));
+                })
+                .sort((a, b) => {
+                  // Prefer exact match or closer length
+                  const aPost = a.jobPostingId?.post?.en || "";
+                  const bPost = b.jobPostingId?.post?.en || "";
+                  const aDiff = Math.abs(aPost.length - targetPostEn.length);
+                  const bDiff = Math.abs(bPost.length - targetPostEn.length);
+                  return aDiff - bDiff;
+                })[0];
+
+              if (matchingApp) {
+                // console.log("✅ MOU Match: Recovered application:", matchingApp.applicationNumber);
+                app = matchingApp;
+              } else if (allAppsRes.data?.applications?.length > 0) {
+                // Ultimate fallback: if no post match, just take the first application to get candidate info
+                app = allAppsRes.data.applications[0];
+              }
+            }
+
             if (app) {
               setApplication(app);
 
               // Find matching fee structure
-              const postName = app.jobPostingId?.post?.en || currentExam.post?.en || currentExam.postTitle?.en;
+              const postName = targetPostEn || app.jobPostingId?.post?.en || currentExam.post?.en || currentExam.postTitle?.en;
+
               if (feeRes.success && feeRes.data) {
-                const matchingFee = feeRes.data.find(f => f.jobPost === postName);
+                const matchingFee = feeRes.data.find(f => { return f.jobPost?.toLowerCase() === postName?.toLowerCase() });
                 if (matchingFee) setFeeDetails(matchingFee);
               }
 
@@ -562,11 +615,24 @@ const MOUForm = () => {
         if (Array.isArray(res)) blockList = res;
         else if (res.data) blockList = res.data;
 
-        // Map objects to bilingual strings for selection
-        setBlocks(blockList.map(b => ({
+        // Map objects to bilingual strings and deduplicate by label
+        const processedBlocks = blockList.map(b => ({
           id: b._id,
           label: b.nameHi ? `${b.name} / ${b.nameHi}` : b.name
-        })));
+        }));
+
+        const uniqueBlocks = [];
+        const seenLabels = new Set();
+
+        processedBlocks.forEach(b => {
+          const lowerLabel = b.label.toLowerCase().trim();
+          if (!seenLabels.has(lowerLabel)) {
+            seenLabels.add(lowerLabel);
+            uniqueBlocks.push(b);
+          }
+        });
+
+        setBlocks(uniqueBlocks);
       } catch (err) {
         console.error("Error fetching blocks:", err);
       }
@@ -589,7 +655,13 @@ const MOUForm = () => {
         if (Array.isArray(res)) panchList = res;
         else if (res.data) panchList = res.data;
 
-        setPanchayats(panchList.map(p => p.nameHi ? `${p.name} / ${p.nameHi}` : p.name));
+        const processedPanchayats = panchList.map(p => p.nameHi ? `${p.name} / ${p.nameHi}` : p.name);
+
+        // Deduplicate panchayats
+        const uniquePanchayats = Array.from(new Set(processedPanchayats.map(p => p.trim())))
+          .sort((a, b) => a.localeCompare(b));
+
+        setPanchayats(uniquePanchayats);
       } catch (err) {
         console.error("Error fetching panchayats:", err);
       }
@@ -609,7 +681,7 @@ const MOUForm = () => {
       year: currentEdu.year,
       percentage: currentEdu.percentage
     };
-    if (currentEdu.file && typeof currentEdu.file === 'string') {
+    if (currentEdu.file) {
       eduData.file = currentEdu.file;
     }
 
@@ -779,10 +851,30 @@ const MOUForm = () => {
   );
 
 
+  const getDetectedPost = (obj) => {
+    if (obj?.post?.en) return obj.post.en;
+    if (obj?.postTitle?.en) return obj.postTitle.en;
+    if (obj?.title) {
+      const t = obj.title.toLowerCase();
+      if (t.includes("district manager")) return "District Manager";
+      if (t.includes("block supervisor")) return "Block Supervisor Cum Panchayat Executive";
+      if (t.includes("panchayat executive")) return "Panchayat Executive";
+    }
+    return null;
+  };
 
-  const advtNo = application?.jobPostingId?.advtNo || exam?.advtNo || "N/A";
-  const postEn = application?.jobPostingId?.post?.en || exam?.post?.en || exam?.postTitle?.en || "District Manager";
-  const postHi = application?.jobPostingId?.post?.hi || exam?.post?.hi || exam?.postTitle?.hi || "जिला प्रबंधक";
+  const getAdvtNo = (obj) => {
+    if (obj?.advtNo) return obj.advtNo;
+    if (obj?.title) {
+      const match = obj.title.match(/Advt\. No\. ([^/ ]+)/i);
+      if (match) return match[1].trim();
+    }
+    return null;
+  };
+
+  const advtNo = getAdvtNo(exam) || getAdvtNo(application) || "N/A";
+  const postEn = getDetectedPost(exam) || getDetectedPost(application) || "District Manager";
+  const postHi = exam?.post?.hi || exam?.postTitle?.hi || application?.jobPostingId?.post?.hi || (postEn === "District Manager" ? "जिला प्रबंधक" : "प्रखंड पर्यवेक्षक सह पंचायत कार्यपालक");
 
   const recruitmentTitle = `Recruitment for the Post of ${postEn} Advt. No. ${advtNo} / ${postHi} पद हेतु भर्ती विज्ञप्ति संख्या: ${advtNo}`;
 
@@ -957,7 +1049,7 @@ const MOUForm = () => {
                     </span>
                   </label>
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1 font-bold uppercase tracking-tighter">✔ JPG, PNG, PDF (MAX 2MB)</p>
+                <p className="text-[10px] text-gray-400 mt-1 font-bold uppercase tracking-tighter">✔ JPG, PNG, PDF (High Quality)</p>
               </div>
 
               {/* Aadhaar Back */}
@@ -983,7 +1075,7 @@ const MOUForm = () => {
                     </span>
                   </label>
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1 font-bold uppercase tracking-tighter">✔ JPG, PNG, PDF (MAX 2MB)</p>
+                <p className="text-[10px] text-gray-400 mt-1 font-bold uppercase tracking-tighter">✔ JPG, PNG, PDF (High Quality)</p>
               </div>
 
               {/* PAN Card */}
@@ -1009,7 +1101,7 @@ const MOUForm = () => {
                     </span>
                   </label>
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1 font-bold uppercase tracking-tighter">✔ JPG, PNG, PDF (MAX 2MB)</p>
+                <p className="text-[10px] text-gray-400 mt-1 font-bold uppercase tracking-tighter">✔ JPG, PNG, PDF (High Quality)</p>
               </div>
             </div>
 
@@ -1045,20 +1137,18 @@ const MOUForm = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <FormLabel en="Block / Khand / प्रखंड :" required />
-                <FormSelect
+                <FormInput
                   value={formData.blockKhand}
-                  onChange={handleBlockChange}
-                  options={blocks.map(b => b.label)}
-                  placeholder="--Select Block--"
+                  onChange={(e) => setFormData({ ...formData, blockKhand: e.target.value })}
+                  placeholder="Type Block Name..."
                 />
               </div>
               <div>
                 <FormLabel en="Gram Panchayat / ग्राम पंचायत :" required />
-                <FormSelect
+                <FormInput
                   value={formData.gramPanchayat}
                   onChange={(e) => setFormData({ ...formData, gramPanchayat: e.target.value })}
-                  options={panchayats}
-                  placeholder="--Select Panchayat--"
+                  placeholder="Type Panchayat Name..."
                 />
               </div>
               <div>
@@ -1122,7 +1212,10 @@ const MOUForm = () => {
                       <td className="px-4 py-3 border-r border-[#5cb87a]">
                         {edu.file ? (
                           <div className="flex items-center gap-2 text-[11px] font-bold text-green-800 bg-white/50 px-3 py-1 rounded border border-[#5cb87a]">
-                            <CheckCircle2 className="w-3 h-3" /> {edu.file.name.substring(0, 15)}...
+                            <CheckCircle2 className="w-3 h-3 text-green-600" /> 
+                            <span className="truncate max-w-[120px]">
+                              {typeof edu.file === 'string' ? "Marksheet Uploaded" : edu.file.name}
+                            </span>
                           </div>
                         ) : (
                           <span className="text-gray-500 text-[11px] italic">No file uploaded</span>
@@ -1246,7 +1339,7 @@ const MOUForm = () => {
                       )}
                     </div>
                   </label>
-                  <div className="text-[9px] text-gray-700 mt-1 uppercase font-bold tracking-tighter">PDF/JPG (MAX 2MB)</div>
+                  <div className="text-[9px] text-gray-700 mt-1 uppercase font-bold tracking-tighter">PDF/JPG (High Quality)</div>
                 </div>
               </div>
             </div>
@@ -1456,7 +1549,7 @@ const MOUForm = () => {
                       <CreditCard className="w-8 h-8 text-gray-400" />
                       <div>
                         <span className="text-sm font-black text-gray-700 block uppercase">Upload Passbook or Cancelled Cheque</span>
-                        <span className="text-[10px] text-green-600 font-bold uppercase tracking-widest mt-1 block bg-green-50 px-2 py-0.5 rounded">✔ JPG, PNG, PDF (MAX 2MB)</span>
+                        <span className="text-[10px] text-green-600 font-bold uppercase tracking-widest mt-1 block bg-green-50 px-2 py-0.5 rounded">✔ JPG, PNG, PDF (High Quality)</span>
                       </div>
                     </div>
                   )}
@@ -1539,6 +1632,9 @@ const MOUForm = () => {
           application={application}
           formData={formData}
           empId={tempEmpId}
+          exam={exam}
+          detectedPost={postEn}
+          detectedAdvtNo={advtNo}
         />
       )}
     </DashboardLayout>
@@ -1546,7 +1642,7 @@ const MOUForm = () => {
 };
 
 // ── MOU MODAL COMPONENT ──
-const MOUModal = ({ isOpen, onClose, onVerify, application, formData, empId }) => {
+const MOUModal = ({ isOpen, onClose, onVerify, application, formData, empId, exam, detectedPost, detectedAdvtNo }) => {
   const [activeTab, setActiveTab] = useState(0);
   const [viewedCount, setViewedCount] = useState(1);
   const logo = "/src/assets/docs/logo.png"; // Logo Path
@@ -1606,10 +1702,10 @@ const MOUModal = ({ isOpen, onClose, onVerify, application, formData, empId }) =
           <div className="flex-1 overflow-y-auto p-8 bg-gray-200">
             <div className="bg-white mx-auto shadow-sm p-12 min-h-full max-w-[800px] border-t-8 border-green-600 rounded-sm">
 
-              {activeTab === 0 && <AuthorizationTemplate application={application} formData={formData} empId={empId} logo={logo} />}
-              {activeTab === 1 && <ConsentTemplate application={application} formData={formData} empId={empId} logo={logo} />}
-              {activeTab === 2 && <MOUTemplate application={application} formData={formData} empId={empId} logo={logo} />}
-              {activeTab === 3 && <IDCardTemplate application={application} formData={formData} empId={empId} logo={logo} />}
+              {activeTab === 0 && <AuthorizationTemplate application={application} formData={formData} empId={empId} logo={logo} detectedPost={detectedPost} detectedAdvtNo={detectedAdvtNo} />}
+              {activeTab === 1 && <ConsentTemplate application={application} formData={formData} empId={empId} logo={logo} detectedPost={detectedPost} detectedAdvtNo={detectedAdvtNo} />}
+              {activeTab === 2 && <MOUTemplate application={application} formData={formData} empId={empId} logo={logo} detectedPost={detectedPost} detectedAdvtNo={detectedAdvtNo} />}
+              {activeTab === 3 && <IDCardTemplate application={application} formData={formData} empId={empId} logo={logo} detectedPost={detectedPost} detectedAdvtNo={detectedAdvtNo} />}
 
             </div>
           </div>
@@ -1646,9 +1742,10 @@ const MOUModal = ({ isOpen, onClose, onVerify, application, formData, empId }) =
 
 // ── DOCUMENT TEMPLATES ──
 
-const AuthorizationTemplate = ({ application, formData, empId, logo }) => {
+const AuthorizationTemplate = ({ application, formData, empId, logo, detectedPost, detectedAdvtNo }) => {
   const currentDate = new Date().toLocaleDateString();
-  const post = application?.post || "District Manager";
+  const post = detectedPost || application?.post || application?.jobPostingId?.post?.en || "District Manager";
+  // console.log(application);
 
   // Configuration for different posts
   const postDetails = {
@@ -1662,7 +1759,7 @@ const AuthorizationTemplate = ({ application, formData, empId, logo }) => {
       cardRate: "₹127 for each card created by you, and ₹10 per card for each card created by the Panchayat Executive and Block Supervisor of your district.",
       footerCode: "mou_2933 District Manager"
     },
-    "Block Supervisor": {
+    "Block Supervisor Cum Panchayat Executive": {
       refPrefix: "BR/BSCPE",
       subj: "Block Supervisor Cum Panchayat Executive",
       offer: "Block Supervisor cum Panchayat Executive",
@@ -1830,9 +1927,9 @@ const AuthorizationTemplate = ({ application, formData, empId, logo }) => {
   );
 };
 
-const ConsentTemplate = ({ application, formData, empId, logo }) => {
+const ConsentTemplate = ({ application, formData, empId, logo, detectedPost, detectedAdvtNo }) => {
   const currentDate = new Date().toLocaleString();
-  const post = application?.post || "District Manager";
+  const post = detectedPost || application?.post || application?.jobPostingId?.post?.en || "District Manager";
 
   const postConfigs = {
     "District Manager": {
@@ -1841,7 +1938,7 @@ const ConsentTemplate = ({ application, formData, empId, logo }) => {
       execPost: "DISTRICT EXECUTIVE",
       footerPost: "DISTRICT EXECUTIVE"
     },
-    "Block Supervisor": {
+    "Block Supervisor Cum Panchayat Executive": {
       consentPost: "Block Supervisor cum Panchayat Executive",
       pointPost: "Block Supervisor cum Panchayat Executive",
       execPost: "Block Supervisor cum Panchayat Executive",
@@ -1963,9 +2060,9 @@ const ConsentTemplate = ({ application, formData, empId, logo }) => {
   );
 };
 
-const MOUTemplate = ({ application, formData, empId, logo }) => {
+const MOUTemplate = ({ application, formData, empId, logo, detectedPost, detectedAdvtNo }) => {
   const currentDate = new Date().toLocaleDateString();
-  const post = application?.post || "District Manager";
+  const post = detectedPost || application?.post || application?.jobPostingId?.post?.en || "District Manager";
 
   const postConfigs = {
     "District Manager": {
@@ -1974,7 +2071,7 @@ const MOUTemplate = ({ application, formData, empId, logo }) => {
       workLoc: `${formData.district} District (${formData.state})`,
       salary: "Rs 25,500 monthly"
     },
-    "Block Supervisor": {
+    "Block Supervisor Cum Panchayat Executive": {
       mouPost: "Block Supervisor cum Panchayat Executive",
       execPost: "Block Supervisor Cum Panchayat Executive",
       workLoc: `${formData.block} Block, ${formData.district} District (${formData.state})`,
@@ -2273,13 +2370,14 @@ const MOUTemplate = ({ application, formData, empId, logo }) => {
 
 
 
-const IDCardTemplate = ({ application, formData, empId, logo }) => {
+const IDCardTemplate = ({ application, formData, empId, logo, detectedPost, detectedAdvtNo }) => {
   const postLabels = {
     "District Manager": "DISTRICT EXECUTIVE",
-    "Block Supervisor": "BLOCK SUPERVISOR",
+    "Block Supervisor Cum Panchayat Executive": "BLOCK SUPERVISOR",
     "Panchayat Executive": "PANCHAYAT EXECUTIVE"
   };
-  const designation = postLabels[application?.post] || postLabels["District Manager"];
+  const postKey = detectedPost || application?.post || application?.jobPostingId?.post?.en || "District Manager";
+  const designation = postLabels[postKey] || postLabels["District Manager"];
 
   return (
     <div className="flex justify-center items-center py-6 bg-gray-50 rounded-xl">

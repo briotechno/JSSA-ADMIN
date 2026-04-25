@@ -1,11 +1,16 @@
 import React, { useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
-import { useAuth } from "../auth/AuthProvider";
-import { roleHomePath } from "../auth/auth";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { useAuth } from "./AuthProvider";
 import { employeesAPI } from "../utils/api";
 
-export default function DashboardRedirect() {
-  const { role, user } = useAuth();
+/**
+ * RequireOnboarding
+ * Protects employee dashboard routes. 
+ * Redirects to onboarding if not complete.
+ */
+export const RequireOnboarding = () => {
+  const { role } = useAuth();
+  const location = useLocation();
   const [onboardingComplete, setOnboardingComplete] = useState(null);
   const [isLoading, setIsLoading] = useState(role === "employee");
 
@@ -17,7 +22,6 @@ export default function DashboardRedirect() {
           if (res.success) {
             setOnboardingComplete(res.onboardingComplete);
           } else {
-            // Fallback to true if API fails to avoid blocking users unnecessarily
             setOnboardingComplete(true);
           }
         } catch (err) {
@@ -27,9 +31,8 @@ export default function DashboardRedirect() {
         }
       }
     };
-
     checkOnboarding();
-  }, [role]);
+  }, [role, location.pathname]);
 
   if (isLoading) {
     return (
@@ -39,10 +42,15 @@ export default function DashboardRedirect() {
     );
   }
 
-  if (role === "employee" && onboardingComplete === false) {
+  // If employee and onboarding is NOT complete, force them to stay on onboarding page
+  if (role === "employee" && onboardingComplete === false && location.pathname !== "/employee/onboarding") {
     return <Navigate to="/employee/onboarding" replace />;
   }
 
-  return <Navigate to={roleHomePath(role)} replace />;
-}
+  // If employee and onboarding IS complete, don't let them go back to onboarding page
+  if (role === "employee" && onboardingComplete === true && location.pathname === "/employee/onboarding") {
+    return <Navigate to="/employee/dashboard" replace />;
+  }
 
+  return <Outlet />;
+};

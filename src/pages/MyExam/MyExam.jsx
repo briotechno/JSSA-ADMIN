@@ -1004,14 +1004,14 @@ export default function MyExam() {
                                 </button>
                                 <button
                                   onClick={() => handleResult(exam)}
-                                  className={`px-5 py-2.5 text-white rounded-md font-medium transition ${exam.resultDate && new Date() < new Date(exam.resultDate)
+                                  className={`px-5 py-2.5 text-white rounded-md font-medium transition ${!exam.resultAvailable
                                     ? "bg-amber-500 hover:bg-amber-600"
                                     : "bg-purple-600 hover:bg-purple-700"
                                     }`}
                                 >
-                                  {exam.resultDate && new Date() < new Date(exam.resultDate) ? t.resultPending : t.result}
+                                  {!exam.resultAvailable ? t.resultPending : t.result}
                                 </button>
-                                {(!exam.resultDate || new Date() >= new Date(exam.resultDate)) &&
+                                {exam.resultAvailable &&
                                   ((exam.userAttempt?.score || 0) >= (exam.passingMarks || 0)) && (
                                     <>
                                       <button
@@ -1100,12 +1100,12 @@ export default function MyExam() {
                                 </button>
                                 <button
                                   onClick={() => handleResult(exam)}
-                                  className={`px-4 py-2 text-white rounded-md text-sm font-medium transition ${exam.resultDate && new Date() < new Date(exam.resultDate)
+                                  className={`px-4 py-2 text-white rounded-md text-sm font-medium transition ${!exam.resultAvailable
                                     ? "bg-amber-500 hover:bg-amber-600"
                                     : "bg-purple-600 hover:bg-purple-700"
                                     }`}
                                 >
-                                  {exam.resultDate && new Date() < new Date(exam.resultDate) ? t.resultPending : t.result}
+                                  {!exam.resultAvailable ? t.resultPending : t.result}
                                 </button>
                               </>
                             )}
@@ -1170,14 +1170,14 @@ export default function MyExam() {
                                 </button>
                                 <button
                                   onClick={() => handleResult(exam)}
-                                  className={`px-4 py-2 text-white rounded-md text-sm font-medium transition ${exam.resultDate && new Date() < new Date(exam.resultDate)
+                                  className={`px-4 py-2 text-white rounded-md text-sm font-medium transition ${!exam.resultAvailable
                                     ? "bg-amber-500 hover:bg-amber-600"
                                     : "bg-purple-600 hover:bg-purple-700"
                                     }`}
                                 >
-                                  {exam.resultDate && new Date() < new Date(exam.resultDate) ? t.resultPending : t.result}
+                                  {!exam.resultAvailable ? t.resultPending : t.result}
                                 </button>
-                                {(!exam.resultDate || new Date() >= new Date(exam.resultDate)) &&
+                                {exam.resultAvailable &&
                                   ((exam.userAttempt?.score || 0) >= (exam.passingMarks || 0)) && (
                                     <>
                                       <button
@@ -1208,13 +1208,21 @@ export default function MyExam() {
                             )}
                           </div>
 
-                          {(!exam.resultDate || new Date() >= new Date(exam.resultDate)) &&
+                          {exam.resultAvailable &&
                             ((exam.userAttempt?.score || 0) >= (exam.passingMarks || 0)) &&
                             isMOUVisible(exam) && (
                               <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
                                 <div className="flex flex-col">
-                                  <p className="text-[12px] font-semibold text-black uppercase leading-none tracking-tight">MOU Support Contact Number</p>
-                                  <p className="text-[12px] font-semibold text-black uppercase mt-1 tracking-tight">MOU सहायता संपर्क नंबर</p>
+                                  <p className="text-[13px] font-semibold text-black uppercase leading-none tracking-tight">MOU Support Contact Number</p>
+                                  <p className="text-[13px] font-bold text-black uppercase mt-1.5 tracking-tight">MOU सहायता संपर्क नंबर</p>
+                                  <div className="mt-2.5 flex flex-col gap-1">
+                                    <p className="text-[11px] font-extrabold text-[#3AB000] uppercase tracking-wide">
+                                      Inquiry Hours: Mon - Sat (10 AM - 6 PM)
+                                    </p>
+                                    <p className="text-[11px] font-bold text-gray-700 uppercase tracking-tight">
+                                      पूछताछ का समय: सोम - शनि (सुबह 10 - शाम 6 बजे)
+                                    </p>
+                                  </div>
                                 </div>
                                 <a
                                   href="tel:+919289397569"
@@ -1248,7 +1256,7 @@ export default function MyExam() {
   if (step === STEP.result && selectedExam) {
     const now = new Date();
     const resultDate = selectedExam.resultDate ? new Date(selectedExam.resultDate) : null;
-    const isActuallyAvailable = resultDate ? now >= resultDate : true;
+    const isActuallyAvailable = selectedExam.showResult || (resultDate ? now >= resultDate : true);
 
     const resDateStr = resultDate ? resultDate.toLocaleDateString("en-IN", {
       day: "2-digit",
@@ -1311,8 +1319,18 @@ export default function MyExam() {
                     {isMOUVisible(selectedExam) && (
                       <div className="mt-6 pt-6 border-t border-gray-100 flex flex-col items-center gap-3">
                         <div className="text-center">
-                          <p className="text-[10px] font-semibold text-black uppercase tracking-widest">MOU Support Contact Number</p>
-                          <p className="text-[10px] font-semibold text-black uppercase mt-1 tracking-widest">MOU सहायता संपर्क नंबर</p>
+                        <div className="text-center">
+                          <p className="text-[11px] font-semibold text-black uppercase tracking-widest">MOU Support Contact Number</p>
+                          <p className="text-[11px] font-bold text-black uppercase mt-1 tracking-widest">MOU सहायता संपर्क नंबर</p>
+                          <div className="mt-2.5 text-center">
+                            <p className="text-[10px] font-extrabold text-[#3AB000] uppercase tracking-wider">
+                              Inquiry Hours: Mon - Sat (10 AM - 6 PM)
+                            </p>
+                            <p className="text-[10px] font-bold text-gray-700 uppercase mt-1 tracking-tight">
+                              पूछताछ का समय: सोम - शनि (सुबह 10 - शाम 6)
+                            </p>
+                          </div>
+                        </div>
                         </div>
                         <a
                           href="tel:+919289397569"

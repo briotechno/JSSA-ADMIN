@@ -215,6 +215,36 @@ export const applicationsAPI = {
 };
 
 /**
+ * Employees API
+ */
+export const employeesAPI = {
+  create: async (employeeData) => {
+    return apiRequest("/employees", {
+      method: "POST",
+      body: JSON.stringify(employeeData),
+    });
+  },
+  getEmployees: async () => {
+    return apiRequest("/employees", { method: "GET" });
+  },
+  getOnboardingStatus: async () => {
+    return apiRequest("/employees/onboarding-status", { method: "GET" });
+  },
+  completeOnboarding: async (formData) => {
+    return apiRequest("/employees/complete-onboarding", {
+      method: "POST",
+      body: JSON.stringify(formData),
+    });
+  },
+  getMe: async () => {
+    return apiRequest("/employees/me", { method: "GET" });
+  },
+  delete: async (id) => {
+    return apiRequest(`/employees/${id}`, { method: "DELETE" });
+  },
+};
+
+/**
  * Job Postings API
  */
 export const jobPostingsAPI = {
@@ -471,6 +501,23 @@ export const paymentsAPI = {
     const url = `/payments/transactions${queryString ? `?${queryString}` : ""}`;
     return apiRequest(url, { method: "GET" });
   },
+  getAllTransactions: async (params = {}) => {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append("page", params.page);
+    if (params.limit !== undefined) queryParams.append("limit", params.limit);
+    if (params.status) queryParams.append("status", params.status);
+    if (params.search) queryParams.append("search", params.search);
+
+    const queryString = queryParams.toString();
+    const url = `/payments/all-transactions${queryString ? `?${queryString}` : ""}`;
+    return apiRequest(url, { method: "GET" });
+  },
+  updateMOUStatus: async (data) => {
+    return apiRequest("/payments/mou/status", {
+      method: "PATCH",
+      body: JSON.stringify(data)
+    });
+  },
 };
 
 /**
@@ -634,10 +681,16 @@ export const createPaperAPI = {
     });
   },
 
-  planReExam: async (testId, studentIds) => {
-    return apiRequest(`/create-paper/${testId}/re-exam`, {
+  planReExam: async (id, studentIds, extraData = {}) => {
+    return apiRequest(`/create-paper/${id}/re-exam`, { 
+      method: "POST", 
+      body: JSON.stringify({ studentIds, ...extraData }) 
+    });
+  },
+  notifyManual: async (id, studentIds, extraData = {}) => {
+    return apiRequest(`/create-paper/${id}/notify-manual`, {
       method: "POST",
-      body: JSON.stringify({ studentIds })
+      body: JSON.stringify({ studentIds, ...extraData })
     });
   },
 
@@ -677,16 +730,73 @@ export const createPaperAPI = {
     const query = new URLSearchParams(params).toString();
     return apiRequest(`/create-paper/mou/global-list?${query}`, { method: "GET" });
   },
+  getMOUGlobalIds: async (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiRequest(`/create-paper/mou/global-ids?${query}`, { method: "GET" });
+  },
   updateMOUStatus: async (id, status) => {
     return apiRequest(`/create-paper/mou/update-status/${id}`, {
       method: "PATCH",
       body: JSON.stringify({ status }),
     });
   },
+  // Professional Export using standard apiRequest
+  exportMOUCSV: async (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/create-paper/mou/export-csv?${query}`, {
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+        "Accept": "text/csv"
+      }
+    });
+    if (!response.ok) throw new Error("Export failed");
+    return await response.blob();
+  },
   testWhatsApp: async (data) => {
     return apiRequest("/create-paper/test/whatsapp", {
       method: "POST",
       body: JSON.stringify(data),
+    });
+  },
+  bulkUpdateMOU: async (data) => {
+    return apiRequest("/create-paper/bulk-update-mou", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+  notifyMOU: async (data) => {
+    return apiRequest("/create-paper/mou/notify", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+  startMOUBroadcast: async (attemptIds, channels) => {
+    return apiRequest("/create-paper/mou/broadcast", {
+      method: "POST",
+      body: JSON.stringify({ attemptIds, channels }),
+    });
+  },
+  startBroadcast: async (id, studentIds, extraData = {}) => {
+    return apiRequest(`/create-paper/${id}/broadcast`, {
+      method: "POST",
+      body: JSON.stringify({ studentIds, ...extraData }),
+    });
+  },
+  getBroadcastStatus: async (jobId) => {
+    return apiRequest(`/create-paper/broadcast/status/${jobId}`, {
+      method: "GET",
+    });
+  },
+  controlBroadcast: async (jobId, action) => {
+    return apiRequest(`/create-paper/broadcast/control/${jobId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ action }),
+    });
+  },
+  getActiveBroadcasts: async () => {
+    return apiRequest("/create-paper/broadcast/active", {
+      method: "GET",
     });
   },
 };
@@ -861,6 +971,35 @@ export const locationAPI = {
       body: JSON.stringify(data),
     });
   },
+  getLocationStats: async (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiRequest(`/location/stats${query ? `?${query}` : ""}`, { method: "GET" });
+  },
+  deduplicate: async () => {
+    return apiRequest("/location/deduplicate", { method: "POST" });
+  },
+  deleteByState: async (state) => {
+    return apiRequest("/location/delete-by-state", {
+      method: "DELETE",
+      body: JSON.stringify({ state }),
+    });
+  },
+};
+
+export const cardAPI = {
+  create: async (data) => {
+    return apiRequest("/cards/create", { method: "POST", body: JSON.stringify(data) });
+  },
+  list: async (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiRequest(`/cards/list${query ? `?${query}` : ""}`, { method: "GET" });
+  },
+  getDetails: async (id) => {
+    return apiRequest(`/cards/details/${id}`, { method: "GET" });
+  },
+  getMyCard: async () => {
+    return apiRequest("/cards/my-card", { method: "GET" });
+  },
 };
 
 // Combined API object
@@ -875,6 +1014,25 @@ export const api = {
   feeStructure: feeStructureAPI,
   mou: mouAPI,
   location: locationAPI,
+  cards: cardAPI,
+};
+
+/**
+ * Admin API
+ */
+export const adminAPI = {
+  getAdmins: async () => {
+    return apiRequest("/auth/admin/list", { method: "GET" });
+  },
+  createAdmin: async (adminData) => {
+    return apiRequest("/auth/admin/create", {
+      method: "POST",
+      body: JSON.stringify(adminData),
+    });
+  },
+  deleteAdmin: async (id) => {
+    return apiRequest(`/auth/admin/${id}`, { method: "DELETE" });
+  },
 };
 
 export default apiRequest;

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../../components/DashboardLayout";
 import { createPaperAPI } from "../../utils/api";
-import { UserPlus, Search, ShieldAlert, ChevronDown, Check, X } from "lucide-react";
+import { UserPlus, Search, ShieldAlert, ChevronDown, Check, X, RefreshCw, Filter } from "lucide-react";
 import { jobPostingsAPI } from "../../utils/api";
 
 // Same UI constants as ReExam
@@ -54,8 +54,11 @@ const Unassigned = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [tempSearchQuery, setTempSearchQuery] = useState("");
   const [appliedFrom, setAppliedFrom] = useState("");
   const [appliedTo, setAppliedTo] = useState("");
+  const [tempAppliedFrom, setTempAppliedFrom] = useState("");
+  const [tempAppliedTo, setTempAppliedTo] = useState("");
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
   const [selectionMode, setSelectionMode] = useState("manual"); // "manual" or "all-paid"
   const [deselectedIds, setDeselectedIds] = useState(new Set());
@@ -64,6 +67,8 @@ const Unassigned = () => {
   const [postings, setPostings] = useState([]);
   const [selectedPostingId, setSelectedPostingId] = useState("");
   const [selectedPostingTitle, setSelectedPostingTitle] = useState("");
+  const [tempSelectedPostingId, setTempSelectedPostingId] = useState("");
+  const [tempSelectedPostingTitle, setTempSelectedPostingTitle] = useState("");
   const [isTitleDropdownOpen, setIsTitleDropdownOpen] = useState(false);
   const [titleSearch, setTitleSearch] = useState("");
   const titleDropdownRef = useRef(null);
@@ -221,13 +226,6 @@ const Unassigned = () => {
       alert("Please select at least one candidate to assign.");
       return;
     }
-    if (
-      !window.confirm(
-        `Create a new Event for these ${selectionCount} selected candidate(s)? You will be taken to the 'Create Paper' section to finalize it.`
-      )
-    )
-      return;
-
     setIsActionLoading(true);
     try {
       let finalIds = [...selectedStudentIds];
@@ -299,10 +297,14 @@ const Unassigned = () => {
                   type="text"
                   placeholder="Search students..."
                   className="flex-1 px-3 sm:px-4 text-xs sm:text-sm text-gray-700 focus:outline-none h-full bg-white"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={tempSearchQuery}
+                  onChange={(e) => setTempSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && setSearchQuery(tempSearchQuery)}
                 />
-                <button className="bg-[#3AB000] hover:bg-[#2d8a00] text-white text-xs sm:text-sm px-4 h-full font-medium transition-colors whitespace-nowrap">
+                <button 
+                  onClick={() => setSearchQuery(tempSearchQuery)}
+                  className="bg-[#3AB000] hover:bg-[#2d8a00] text-white text-xs sm:text-sm px-4 h-full font-medium transition-colors whitespace-nowrap"
+                >
                   Search
                 </button>
               </div>
@@ -313,12 +315,16 @@ const Unassigned = () => {
               disabled={isActionLoading || selectionCount === 0}
               className="bg-black hover:bg-[#3AB000] disabled:opacity-50 text-white text-xs sm:text-sm font-medium px-4 sm:px-6 py-2.5 rounded-sm transition-colors whitespace-nowrap w-full sm:w-auto flex items-center justify-center gap-1.5"
             >
-              <UserPlus size={14} />
-              Assign Selected ({selectionCount})
+              {isActionLoading ? (
+                <RefreshCw size={14} className="animate-spin text-[#3AB000]" />
+              ) : (
+                <UserPlus size={14} />
+              )}
+              {isActionLoading ? "Assigning..." : `Assign Selected (${selectionCount})`}
             </button>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 mb-4 items-end">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 mb-4 items-end">
             <div className="lg:col-span-2 relative" ref={titleDropdownRef}>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">
                 Filter by Post / Event Title
@@ -331,19 +337,19 @@ const Unassigned = () => {
                   <span className={`truncate text-xs font-bold text-gray-400 uppercase tracking-tighter`}>
                     Selected Post Plan
                   </span>
-                  <span className={`truncate ${!selectedPostingTitle ? "text-gray-400" : "text-[#2d8a00] font-black"}`}>
-                    {selectedPostingTitle || "Select Job Posting to filter"}
+                  <span className={`truncate ${!tempSelectedPostingTitle ? "text-gray-400" : "text-[#2d8a00] font-black"}`}>
+                    {tempSelectedPostingTitle || "Select Job Posting to filter"}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  {selectedPostingTitle && (
+                  {tempSelectedPostingTitle && (
                     <X 
                       size={14} 
                       className="text-gray-400 hover:text-red-500" 
                       onClick={(e) => {
                         e.stopPropagation();
-                        setSelectedPostingId("");
-                        setSelectedPostingTitle("");
+                        setTempSelectedPostingId("");
+                        setTempSelectedPostingTitle("");
                       }} 
                     />
                   )}
@@ -376,15 +382,15 @@ const Unassigned = () => {
                   <div className="overflow-y-auto flex-1 custom-scrollbar">
                     <div
                       onClick={() => {
-                        setSelectedPostingId("");
-                        setSelectedPostingTitle("");
+                        setTempSelectedPostingId("");
+                        setTempSelectedPostingTitle("");
                         setIsTitleDropdownOpen(false);
                         setTitleSearch("");
                       }}
-                      className={`px-4 py-3 text-sm cursor-pointer hover:bg-[#e8f5e2] transition-colors border-b border-gray-50 flex items-center justify-between (!selectedPostingId ? "bg-[#e8f5e2] text-[#3AB000] font-semibold" : "text-gray-700")`}
+                      className={`px-4 py-3 text-sm cursor-pointer hover:bg-[#e8f5e2] transition-colors border-b border-gray-50 flex items-center justify-between (!tempSelectedPostingId ? "bg-[#e8f5e2] text-[#3AB000] font-semibold" : "text-gray-700")`}
                     >
                       <span className="font-medium">All Posts</span>
-                      {!selectedPostingId && <Check size={14} className="text-[#3AB000]" />}
+                      {!tempSelectedPostingId && <Check size={14} className="text-[#3AB000]" />}
                     </div>
                     {filteredTitles.length === 0 ? (
                       <div className="px-4 py-6 text-sm text-gray-400 text-center">
@@ -400,15 +406,15 @@ const Unassigned = () => {
                           ? posting.status !== "Inactive" && isVacancyOpen(posting.lastDate)
                           : true;
                         
-                        const isSelected = selectedPostingId === posting?._id;
+                        const isSelected = tempSelectedPostingId === posting?._id;
 
                         return (
                           <div
                             key={opt}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setSelectedPostingId(posting?._id || "");
-                              setSelectedPostingTitle(opt);
+                              setTempSelectedPostingId(posting?._id || "");
+                              setTempSelectedPostingTitle(opt);
                               setIsTitleDropdownOpen(false);
                               setTitleSearch("");
                             }}
@@ -437,8 +443,8 @@ const Unassigned = () => {
               </label>
               <input
                 type="date"
-                value={appliedFrom}
-                onChange={(e) => setAppliedFrom(e.target.value)}
+                value={tempAppliedFrom}
+                onChange={(e) => setTempAppliedFrom(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-[#3AB000] focus:border-[#3AB000] outline-none transition-all"
               />
             </div>
@@ -448,10 +454,24 @@ const Unassigned = () => {
               </label>
               <input
                 type="date"
-                value={appliedTo}
-                onChange={(e) => setAppliedTo(e.target.value)}
+                value={tempAppliedTo}
+                onChange={(e) => setTempAppliedTo(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-[#3AB000] focus:border-[#3AB000] outline-none transition-all"
               />
+            </div>
+            <div className="flex items-end h-full">
+              <button
+                onClick={() => {
+                  setAppliedFrom(tempAppliedFrom);
+                  setAppliedTo(tempAppliedTo);
+                  setSelectedPostingId(tempSelectedPostingId);
+                  setSelectedPostingTitle(tempSelectedPostingTitle);
+                  setSearchQuery(tempSearchQuery);
+                }}
+                className="bg-[#3AB000] hover:bg-[#2d8a00] text-white text-xs font-black uppercase tracking-widest px-6 h-10 rounded-sm transition-all shadow-sm flex items-center justify-center gap-2 w-full lg:w-auto"
+              >
+                <Filter size={14} /> Apply Filter
+              </button>
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">

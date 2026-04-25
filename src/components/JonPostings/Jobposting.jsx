@@ -831,8 +831,8 @@ const JobPostingForm = ({
                 />
               </FormField>
             </div>
-            <div className="grid grid-cols-2 gap-4 mt-4">
-              <FormField label="1st Merit List Release">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+              <FormField label="Onboarding & Training Start Date / जॉइनिंग एवं प्रशिक्षण प्रारंभ तिथि">
                 <input
                   type="date"
                   name="firstMeritListDate"
@@ -841,7 +841,7 @@ const JobPostingForm = ({
                   className={inputCls()}
                 />
               </FormField>
-              <FormField label="Final Merit List Release">
+              <FormField label="Work Commencement Date / Work Start Date / कार्य प्रारंभ तिथि">
                 <input
                   type="date"
                   name="finalMeritListDate"

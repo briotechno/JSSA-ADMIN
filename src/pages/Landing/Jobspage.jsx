@@ -1018,8 +1018,8 @@ function convertJobToComponentFormat(posting) {
     ["Selection Process", posting.selectionProcess?.en || ""],
     ["Application Opening On", posting.applicationOpeningDate || ""],
     ["Last Date of Application", posting.lastDate || ""],
-    ["1st Merit List Released", posting.firstMeritListDate || ""],
-    ["Final Merit List Released", posting.finalMeritListDate || ""],
+    ["Onboarding & Training Start Date", posting.firstMeritListDate || ""],
+    ["Work Commencement Date / Work Start Date", posting.finalMeritListDate || ""],
     ["Fee Structure", posting.fee?.en || ""],
   ];
   const rowsHi = [
@@ -1032,8 +1032,8 @@ function convertJobToComponentFormat(posting) {
     ["चयन प्रक्रिया", posting.selectionProcess?.hi || ""],
     ["आवेदन खुलने की तिथि", posting.applicationOpeningDate || ""],
     ["आवेदन की अंतिम तिथि", posting.lastDate || ""],
-    ["मेधा सूची जारी", posting.firstMeritListDate || ""],
-    ["अंतिम मेधा सूची जारी", posting.finalMeritListDate || ""],
+    ["जॉइनिंग एवं प्रशिक्षण प्रारंभ तिथि", posting.firstMeritListDate || ""],
+    ["कार्य प्रारंभ तिथि", posting.finalMeritListDate || ""],
     ["शुल्क संरचना", posting.fee?.hi || ""],
   ];
   return {

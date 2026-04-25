@@ -132,6 +132,8 @@ const Header = () => {
   const navigate = useNavigate();
   const { role, identifier } = useAuth();
 
+  const [employeeData, setEmployeeData] = useState(null);
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -141,6 +143,39 @@ const Header = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    const fetchEmployeeData = async () => {
+      if (role === "employee") {
+        try {
+          const { employeesAPI } = await import("../utils/api");
+          const res = await employeesAPI.getMe();
+          if (res.success) {
+            setEmployeeData(res.data);
+          }
+        } catch (err) {
+          console.error("Failed to fetch employee data for header:", err);
+        }
+      }
+    };
+    fetchEmployeeData();
+  }, [role]);
+
+  const cleanImageUrl = (url) => {
+    if (!url) return "";
+    if (url.includes("localhost:3005/api")) {
+      return url.replace("http://localhost:3005/api", "https://api.jssabhiyan.com/api");
+    }
+    if (url.startsWith("/api/")) {
+      return `https://api.jssabhiyan.com/api${url}`;
+    }
+    return url;
+  };
+
+  const getInitials = (name) => {
+    if (!name) return "U";
+    return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+  };
 
   return (
     <header
@@ -179,8 +214,22 @@ const Header = () => {
           >
             {/* Avatar with online dot */}
             <div className="relative">
-              <div className="w-8 h-8 rounded-full border-2 border-white/60 overflow-hidden">
-                <StaticAvatar size={32} />
+              <div className="w-8 h-8 rounded-full border-2 border-white/60 overflow-hidden bg-white/10 flex items-center justify-center">
+                {role === "employee" && employeeData ? (
+                  employeeData.photo ? (
+                    <img
+                      src={cleanImageUrl(employeeData.photo)}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-white text-xs font-bold">
+                      {getInitials(employeeData.name)}
+                    </span>
+                  )
+                ) : (
+                  <StaticAvatar size={32} />
+                )}
               </div>
               {/* Online dot */}
               <span
@@ -192,14 +241,10 @@ const Header = () => {
             {/* Name — hidden on small screens */}
             <div className="hidden md:block text-left">
               <p className="text-white text-xs font-bold leading-tight">
-                {role === "admin"
-                  ? "Admin"
-                  : role === "applicant"
-                    ? "Applicant"
-                    : "User"}
+                {role === "employee" && employeeData ? employeeData.name : (role === "admin" ? "Admin" : role === "applicant" ? "Applicant" : "User")}
               </p>
               <p className="text-white/70 text-[10px] leading-tight">
-                {identifier || "JSS Abhiyan"}
+                {role === "employee" && employeeData ? employeeData.email : (identifier || "JSS Abhiyan")}
               </p>
             </div>
           </button>
@@ -217,19 +262,29 @@ const Header = () => {
                   background: `linear-gradient(135deg, ${GREEN} 0%, ${GREEN_DARK} 100%)`,
                 }}
               >
-                <div className="w-10 h-10 rounded-full border-2 border-white overflow-hidden flex-shrink-0">
-                  <StaticAvatar size={40} />
+                <div className="w-10 h-10 rounded-full border-2 border-white overflow-hidden flex-shrink-0 bg-white/10 flex items-center justify-center">
+                  {role === "employee" && employeeData ? (
+                    employeeData.photo ? (
+                      <img
+                        src={cleanImageUrl(employeeData.photo)}
+                        alt="Profile"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-white text-sm font-bold">
+                        {getInitials(employeeData.name)}
+                      </span>
+                    )
+                  ) : (
+                    <StaticAvatar size={40} />
+                  )}
                 </div>
                 <div>
                   <p className="text-sm font-bold text-white leading-tight">
-                    {role === "admin"
-                      ? "Admin"
-                      : role === "applicant"
-                        ? "Applicant"
-                        : "User"}
+                    {role === "employee" && employeeData ? employeeData.name : (role === "admin" ? "Admin" : role === "applicant" ? "Applicant" : "User")}
                   </p>
                   <p className="text-[11px] text-green-100">
-                    {identifier || "support@jssabhiyan-nac.in"}
+                    {role === "employee" && employeeData ? employeeData.email : (identifier || "support@jssabhiyan-nac.in")}
                   </p>
                 </div>
               </div>

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
+import FloatingBroadcastManager from "./FloatingBroadcastManager";
 
 const DashboardLayout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -21,6 +22,9 @@ const DashboardLayout = ({ children }) => {
       >
         {children}
       </main>
+
+      {/* Global Broadcast Status Manager */}
+      <FloatingBroadcastManager />
     </div>
   );
 };

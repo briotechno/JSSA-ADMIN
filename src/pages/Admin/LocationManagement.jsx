@@ -293,19 +293,34 @@ const LocationManagement = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [stats, setStats] = useState({
+    states: 0,
+    districts: 0,
+    blocks: 0,
+    panchayats: 0
+  });
   const itemsPerPage = 13;
 
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const res = await locationAPI.getPanchayats({
-        page: currentPage,
-        limit: itemsPerPage,
-        state: filterState
-      });
-      if (res && res.data) {
-        setLocations(res.data);
-        setTotalPages(res.pages || 1);
+      // Parallel fetch for data and matching stats
+      const [dataRes, statsRes] = await Promise.all([
+        locationAPI.getPanchayats({
+          page: currentPage,
+          limit: itemsPerPage,
+          state: filterState
+        }),
+        locationAPI.getLocationStats({ state: filterState })
+      ]);
+
+      if (dataRes && dataRes.data) {
+        setLocations(dataRes.data);
+        setTotalPages(dataRes.pages || 1);
+      }
+
+      if (statsRes && statsRes.success) {
+        setStats(statsRes.data);
       }
     } catch (err) {
       console.error("Data load error:", err);
@@ -322,6 +337,31 @@ const LocationManagement = () => {
     if (window.confirm("Are you sure?")) {
       await locationAPI.deletePanchayat(id);
       loadData();
+    }
+  };
+
+  const handleBulkDeleteState = async () => {
+    if (!filterState) {
+      alert("Please select a state to delete first.");
+      return;
+    }
+
+    if (window.confirm(`WARNING: Are you sure you want to delete ALL blocks and panchayats for ${filterState}? This action cannot be undone.`)) {
+      setIsLoading(true);
+      try {
+        const res = await locationAPI.deleteByState(filterState);
+        if (res.success) {
+          alert(`Success! ${res.data.blocksDeleted} blocks and ${res.data.panchayatsDeleted} panchayats deleted for ${filterState}.`);
+          loadData();
+        } else {
+          alert(res.error || "Failed to delete data");
+        }
+      } catch (err) {
+        console.error("Bulk delete error:", err);
+        alert("An error occurred during bulk delete.");
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -352,6 +392,49 @@ const LocationManagement = () => {
           </button>
         </div>
 
+        {/* Stats Section */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white p-4 border border-gray-200 rounded-none shadow-sm flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">States</p>
+              <p className="text-xl font-black text-gray-800">{stats.states}</p>
+            </div>
+            <div className="p-2 bg-gray-100 text-gray-400 rounded-full">
+              <MapPin size={18} />
+            </div>
+          </div>
+          
+          <div className="bg-white p-4 border border-gray-200 rounded-none shadow-sm flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Districts</p>
+              <p className="text-xl font-black text-gray-800">{stats.districts}</p>
+            </div>
+            <div className="p-2 bg-blue-50 text-blue-400 rounded-full">
+              <Building2 size={18} />
+            </div>
+          </div>
+
+          <div className="bg-white p-4 border border-gray-200 rounded-none shadow-sm flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Blocks</p>
+              <p className="text-xl font-black text-gray-800">{stats.blocks}</p>
+            </div>
+            <div className="p-2 bg-amber-50 text-amber-500 rounded-full">
+              <Home size={18} />
+            </div>
+          </div>
+
+          <div className="bg-white p-4 border border-gray-200 rounded-none shadow-sm flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Panchayats</p>
+              <p className="text-xl font-black text-[#3AB000]">{stats.panchayats}</p>
+            </div>
+            <div className="p-2 bg-green-50 text-[#3AB000] rounded-full">
+              <CheckCircle2 size={18} />
+            </div>
+          </div>
+        </div>
+
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           {/* Internal Filters */}
           <div className="p-4 bg-white border-b border-gray-100 flex flex-col md:flex-row gap-4 items-center">
@@ -367,16 +450,27 @@ const LocationManagement = () => {
                 </select>
              </div>
 
-             <div className="relative flex-1 w-full">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                <input 
-                  type="text" 
-                  placeholder="Search by District, Block or Panchayat..." 
-                  className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded text-sm outline-none focus:ring-2 focus:ring-[#3AB000]/20 transition-all"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-             </div>
+              <div className="relative flex-1 w-full flex items-center gap-2">
+                <div className="relative flex-1">
+                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                   <input 
+                     type="text" 
+                     placeholder="Search by District, Block or Panchayat..." 
+                     className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded text-sm outline-none focus:ring-2 focus:ring-[#3AB000]/20 transition-all"
+                     value={searchQuery}
+                     onChange={(e) => setSearchQuery(e.target.value)}
+                   />
+                </div>
+                {filterState && (
+                  <button 
+                    onClick={handleBulkDeleteState}
+                    className="flex shrink-0 items-center gap-2 px-4 py-2 bg-red-50 text-red-600 border border-red-100 rounded text-xs font-bold hover:bg-red-600 hover:text-white transition-all shadow-sm"
+                    title={`Delete all data for ${filterState}`}
+                  >
+                    <Trash2 size={14} /> Bulk Delete {filterState}
+                  </button>
+                )}
+              </div>
           </div>
 
           <div className="overflow-x-auto">

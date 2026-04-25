@@ -1,7 +1,7 @@
 const AUTH_STORAGE_KEY = "jssa_auth";
 
 /**
- * @typedef {"admin" | "applicant" | "employee"} Role
+ * @typedef {"admin" | "applicant" | "employee" | "cardHolder"} Role
  * @typedef {{ identifier: string, role: Role, token: string, loginAt: number }} AuthSession
  */
 
@@ -15,7 +15,7 @@ export function getSession() {
     const parsed = JSON.parse(raw);
     if (
       !parsed ||
-      (parsed.role !== "admin" && parsed.role !== "applicant" && parsed.role !== "employee") ||
+      (parsed.role !== "admin" && parsed.role !== "applicant" && parsed.role !== "employee" && parsed.role !== "cardHolder") ||
       typeof parsed.identifier !== "string" ||
       !parsed.token
     ) {
@@ -53,5 +53,6 @@ export function roleHomePath(role) {
   if (role === "admin") return "/admin/dashboard";
   if (role === "applicant") return "/applicant/dashboard";
   if (role === "employee") return "/employee/dashboard";
+  if (role === "cardHolder") return "/my-card";
   return "/";
 }

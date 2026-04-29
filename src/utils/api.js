@@ -64,6 +64,16 @@ async function apiRequest(endpoint, options = {}) {
     }
 
     if (!response.ok) {
+      // 🛡️ Global Auth Interceptor: Handle session termination
+      if (response.status === 401) {
+        console.warn("[AUTH] Session terminated or invalid. Logging out...");
+        localStorage.removeItem("jssa_auth");
+        const publicPaths = ["/", "/login", "/admin-portal-login"];
+        if (!publicPaths.includes(window.location.pathname)) {
+          window.location.href = "/login";
+        }
+      }
+
       // Improve error message handling for objects
       let errorMessage = "Request failed";
       if (data) {
@@ -158,6 +168,58 @@ export const authAPI = {
   getMe: async () => {
     return apiRequest("/auth/me", { method: "GET" });
   },
+
+  logoutAllAdmins: async () => {
+    return apiRequest("/auth/admin/logout-all", { method: "POST" });
+  },
+};
+
+/**
+ * Claims API
+ */
+export const claimsAPI = {
+  submit: async (formData) => {
+    const token = getToken();
+    const url = `${API_BASE_URL}/claims/submit`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: formData,
+    });
+
+    const contentType = response.headers.get("content-type");
+    let data;
+    if (contentType && contentType.includes("application/json")) {
+      data = await response.json();
+    } else {
+      const text = await response.text();
+      throw new Error(text || "Server returned non-JSON response");
+    }
+
+    if (!response.ok) {
+      throw new Error(data.message || data.error || `Request failed with status ${response.status}`);
+    }
+
+    return data;
+  },
+
+  getMyClaims: async () => {
+    return apiRequest("/claims/my-claims", { method: "GET" });
+  },
+
+  getAllClaims: async () => {
+    return apiRequest("/claims/all", { method: "GET" });
+  },
+
+  updateStatus: async (id, status, adminRemark) => {
+    return apiRequest(`/claims/status/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ status, adminRemark }),
+    });
+  },
 };
 
 /**
@@ -224,7 +286,7 @@ export const employeesAPI = {
       body: JSON.stringify(employeeData),
     });
   },
-  getEmployees: async () => {
+  getAll: async () => {
     return apiRequest("/employees", { method: "GET" });
   },
   getOnboardingStatus: async () => {
@@ -238,6 +300,18 @@ export const employeesAPI = {
   },
   getMe: async () => {
     return apiRequest("/employees/me", { method: "GET" });
+  },
+  getProfile: async () => {
+    return apiRequest("/employees/me", { method: "GET" });
+  },
+  lockZone: async (zoneData) => {
+    return apiRequest("/employees/lock-zone", {
+      method: "POST",
+      body: JSON.stringify(zoneData),
+    });
+  },
+  getHierarchy: async () => {
+    return apiRequest("/employees/hierarchy", { method: "GET" });
   },
   delete: async (id) => {
     return apiRequest(`/employees/${id}`, { method: "DELETE" });
@@ -975,6 +1049,10 @@ export const locationAPI = {
     const query = new URLSearchParams(params).toString();
     return apiRequest(`/location/stats${query ? `?${query}` : ""}`, { method: "GET" });
   },
+  getStats: async (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiRequest(`/location/stats${query ? `?${query}` : ""}`, { method: "GET" });
+  },
   deduplicate: async () => {
     return apiRequest("/location/deduplicate", { method: "POST" });
   },
@@ -1030,9 +1108,23 @@ export const adminAPI = {
       body: JSON.stringify(adminData),
     });
   },
+  updateAdmin: async (id, adminData) => {
+    return apiRequest(`/auth/admin/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(adminData),
+    });
+  },
   deleteAdmin: async (id) => {
     return apiRequest(`/auth/admin/${id}`, { method: "DELETE" });
   },
+};
+
+export const announcementAPI = {
+  getAll: () => apiRequest("/announcements"),
+  getLatest: () => apiRequest("/announcements/latest"),
+  create: (data) => apiRequest("/announcements", { method: "POST", body: JSON.stringify(data) }),
+  update: (id, data) => apiRequest(`/announcements/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  delete: (id) => apiRequest(`/announcements/${id}`, { method: "DELETE" }),
 };
 
 export default apiRequest;

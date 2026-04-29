@@ -1212,7 +1212,7 @@ const MOUForm = () => {
                       <td className="px-4 py-3 border-r border-[#5cb87a]">
                         {edu.file ? (
                           <div className="flex items-center gap-2 text-[11px] font-bold text-green-800 bg-white/50 px-3 py-1 rounded border border-[#5cb87a]">
-                            <CheckCircle2 className="w-3 h-3 text-green-600" /> 
+                            <CheckCircle2 className="w-3 h-3 text-green-600" />
                             <span className="truncate max-w-[120px]">
                               {typeof edu.file === 'string' ? "Marksheet Uploaded" : edu.file.name}
                             </span>
@@ -1605,7 +1605,7 @@ const MOUForm = () => {
             </button>
 
             {/* MOCK PAYMENT BUTTON - ONLY FOR LOCALHOST TESTING */}
-            {/* {(window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") && (
+            {(window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") && (
               <button
                 type="button"
                 onClick={handleMockPayment}
@@ -1614,7 +1614,7 @@ const MOUForm = () => {
               >
                 Dev Only: Mock Payment (Role Change Bypass)
               </button>
-            )} */}
+            )}
           </div>
 
         </div>

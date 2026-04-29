@@ -454,11 +454,37 @@ const AddCard = () => {
     setError("");
 
     if (!validateForm()) return;
+    
+    // Wallet Check
+    const currentBalance = parseInt(localStorage.getItem("jssa_wallet_balance") || "750");
+    if (currentBalance < 150) {
+      setError("Insufficient Wallet Balance! Please recharge your wallet (₹150 required per card).");
+      return;
+    }
 
     try {
       setLoading(true);
       const res = await cardAPI.create(formData);
       if (res.success) {
+        // Deduct 150 from wallet
+        const newBalance = currentBalance - 150;
+        localStorage.setItem("jssa_wallet_balance", newBalance.toString());
+        
+        // Add to history
+        const savedHistory = localStorage.getItem("jssa_wallet_history");
+        const history = savedHistory ? JSON.parse(savedHistory) : [];
+        const newHistory = [
+          {
+            id: Date.now(),
+            type: 'CARD_GEN',
+            amount: 150,
+            date: new Date().toISOString(),
+            description: `Card Issued: ${formData.cardholderName}`
+          },
+          ...history
+        ];
+        localStorage.setItem("jssa_wallet_history", JSON.stringify(newHistory));
+        
         setSuccess(true);
         setTimeout(() => navigate("/employee/cards"), 2000);
       } else {

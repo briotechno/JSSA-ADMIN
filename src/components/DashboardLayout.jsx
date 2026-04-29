@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
 import FloatingBroadcastManager from "./FloatingBroadcastManager";
+import TawkMessenger from "./TawkMessenger";
+import AnnouncementBanner from "./AnnouncementBanner";
 
 const DashboardLayout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -10,6 +12,9 @@ const DashboardLayout = ({ children }) => {
     <div>
       {/* Header */}
       <Header />
+
+      {/* Announcement Banner for Employees */}
+      <AnnouncementBanner />
 
       {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
@@ -25,6 +30,9 @@ const DashboardLayout = ({ children }) => {
 
       {/* Global Broadcast Status Manager */}
       <FloatingBroadcastManager />
+
+      {/* Tawk.to Widget for Employees */}
+      <TawkMessenger />
     </div>
   );
 };

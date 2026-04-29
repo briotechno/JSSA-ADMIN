@@ -390,6 +390,7 @@ export default function MyExam() {
 
   const [isDownloadingCert, setIsDownloadingCert] = useState(false);
   const [selectedCertTx, setSelectedCertTx] = useState(null);
+  const [isGuidanceModalOpen, setIsGuidanceModalOpen] = useState(false);
   const certTemplateRef = useRef(null);
   const mouTemplateRef = useRef(null);
 
@@ -416,7 +417,7 @@ export default function MyExam() {
       endSubmit: "End & Submit",
       submitting: "Submitting...",
       noQuestions: "No questions available for this exam.",
-      myExam: "My Exam",
+      myExam: "My Exam & MOU",
       manageExams: "Manage your assigned exams, view schedules, and start your assessments.",
       activeExams: "Active Exams",
       upcomingExams: "Upcoming Exams",
@@ -481,7 +482,7 @@ export default function MyExam() {
       endSubmit: "समाप्त और सबमिट करें",
       submitting: "सबमिट हो रहा है...",
       noQuestions: "इस परीक्षा के लिए कोई प्रश्न उपलब्ध नहीं हैं।",
-      myExam: "मेरी परीक्षा",
+      myExam: "मेरी परीक्षा & MOU",
       manageExams: "अपने असाइन किए गए एग्जाम प्रबंधित करें, शेड्यूल देखें और मूल्यांकन शुरू करें।",
       activeExams: "सक्रिय परीक्षाएं",
       upcomingExams: "आगामी परीक्षाएं",
@@ -639,6 +640,66 @@ export default function MyExam() {
               className="px-6 py-2 bg-[#3AB000] text-white rounded-lg font-bold hover:bg-[#2d8a00] transition shadow-md text-sm"
             >
               {t.close}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Guidance Video Modal
+  const GuidanceVideoModal = ({ isOpen, onClose }) => {
+    const [isVideoLoading, setIsVideoLoading] = useState(true);
+
+    if (!isOpen) return null;
+    return (
+      <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in zoom-in-95 duration-300 border-4 border-[#3AB000]">
+          <div className="bg-[#3AB000] px-6 py-5 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-white/20 p-2 rounded-xl">
+                <PlayCircle className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-white font-black text-lg uppercase tracking-wider">
+                MOU Form Fill Guidance Guide
+              </h3>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-white/20 rounded-full text-white transition-colors border border-white/20"
+            >
+              <XCircle className="w-7 h-7" />
+            </button>
+          </div>
+          <div className="p-2 bg-black">
+            <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-2xl bg-gray-900">
+              {isVideoLoading && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 z-10">
+                  <Loader2 className="w-10 h-10 text-[#3AB000] animate-spin mb-3" />
+                  <p className="text-white font-bold text-xs uppercase tracking-widest animate-pulse">Loading Guidance Video...</p>
+                </div>
+              )}
+              <iframe
+                className="absolute inset-0 w-full h-full"
+                src="https://drive.google.com/file/d/1nxQeJJaO0yLYOMlNKvZDyHbg2JWdjbQH/preview"
+                title="MOU Form Fill Guidance"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allowFullScreen
+                onLoad={() => setIsVideoLoading(false)}
+              ></iframe>
+            </div>
+          </div>
+          <div className="px-6 py-4 bg-gray-50 flex items-center justify-between">
+            <p className="text-xs text-gray-500 font-bold italic uppercase tracking-tighter">
+              Watch this video carefully before filling your MOU form.
+            </p>
+            <button
+              onClick={onClose}
+              className="px-6 py-2 bg-[#3AB000] text-white rounded-xl font-black hover:bg-[#2d8a00] transition shadow-lg text-sm"
+            >
+              GOT IT!
             </button>
           </div>
         </div>
@@ -918,6 +979,7 @@ export default function MyExam() {
       <DashboardLayout>
         <CertificateTemplate exam={selectedCertTx} templateRef={certTemplateRef} />
         <MOUAgreementTemplate exam={selectedCertTx} templateRef={mouTemplateRef} />
+        <GuidanceVideoModal isOpen={isGuidanceModalOpen} onClose={() => setIsGuidanceModalOpen(false)} />
         <div className="min-h-screen bg-gray-50 p-4 md:p-8">
           <div className="max-w-6xl mx-auto space-y-6">
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 md:p-8">
@@ -1224,15 +1286,24 @@ export default function MyExam() {
                                     </p>
                                   </div>
                                 </div>
-                                <a
-                                  href="tel:+919289397569"
-                                  className="flex items-center gap-1.5 text-[#3AB000] font-black text-sm hover:text-[#2d8a00] transition-colors group"
-                                >
-                                  <div className="w-7 h-7 bg-green-50 rounded-full flex items-center justify-center group-hover:bg-green-100 transition-colors shadow-sm">
-                                    <Phone size={14} className="fill-[#3AB000] text-[#3AB000]" />
-                                  </div>
-                                  <span>+91 92893 97569</span>
-                                </a>
+                                <div className="flex flex-col items-end gap-3">
+                                  <a
+                                    href="tel:+919289397569"
+                                    className="flex items-center gap-1.5 text-[#3AB000] font-black text-sm hover:text-[#2d8a00] transition-colors group"
+                                  >
+                                    <div className="w-7 h-7 bg-green-50 rounded-full flex items-center justify-center group-hover:bg-green-100 transition-colors shadow-sm">
+                                      <Phone size={14} className="fill-[#3AB000] text-[#3AB000]" />
+                                    </div>
+                                    <span>+91 92893 97569</span>
+                                  </a>
+                                  <button
+                                    onClick={() => setIsGuidanceModalOpen(true)}
+                                    className="flex items-center gap-1.5 text-blue-600 font-black text-[11px] uppercase tracking-tighter hover:text-blue-800 transition-colors bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 animate-pulse-slow"
+                                  >
+                                    <PlayCircle size={14} />
+                                    Watch MOU Guidance Video
+                                  </button>
+                                </div>
                               </div>
                             )}
                         </div>
@@ -1274,6 +1345,7 @@ export default function MyExam() {
         <CertificateTemplate exam={selectedCertTx} templateRef={certTemplateRef} />
         <MOUAgreementTemplate exam={selectedCertTx} templateRef={mouTemplateRef} />
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+          <GuidanceVideoModal isOpen={isGuidanceModalOpen} onClose={() => setIsGuidanceModalOpen(false)} />
           <div className="max-w-md w-full bg-white rounded-2xl border border-gray-200 shadow-xl p-8 text-center">
             <div className={`w-20 h-20 rounded-full mx-auto flex items-center justify-center mb-6 ${isActuallyAvailable ? (isPassed ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600") : "bg-blue-100 text-blue-600"
               }`}>
@@ -1319,28 +1391,37 @@ export default function MyExam() {
                     {isMOUVisible(selectedExam) && (
                       <div className="mt-6 pt-6 border-t border-gray-100 flex flex-col items-center gap-3">
                         <div className="text-center">
-                        <div className="text-center">
-                          <p className="text-[11px] font-semibold text-black uppercase tracking-widest">MOU Support Contact Number</p>
-                          <p className="text-[11px] font-bold text-black uppercase mt-1 tracking-widest">MOU सहायता संपर्क नंबर</p>
-                          <div className="mt-2.5 text-center">
-                            <p className="text-[10px] font-extrabold text-[#3AB000] uppercase tracking-wider">
-                              Inquiry Hours: Mon - Sat (10 AM - 6 PM)
-                            </p>
-                            <p className="text-[10px] font-bold text-gray-700 uppercase mt-1 tracking-tight">
-                              पूछताछ का समय: सोम - शनि (सुबह 10 - शाम 6)
-                            </p>
+                          <div className="text-center">
+                            <p className="text-[11px] font-semibold text-black uppercase tracking-widest">MOU Support Contact Number</p>
+                            <p className="text-[11px] font-bold text-black uppercase mt-1 tracking-widest">MOU सहायता संपर्क नंबर</p>
+                            <div className="mt-2.5 text-center">
+                              <p className="text-[10px] font-extrabold text-[#3AB000] uppercase tracking-wider">
+                                Inquiry Hours: Mon - Sat (10 AM - 6 PM)
+                              </p>
+                              <p className="text-[10px] font-bold text-gray-700 uppercase mt-1 tracking-tight">
+                                पूछताछ का समय: सोम - शनि (सुबह 10 - शाम 6)
+                              </p>
+                            </div>
                           </div>
                         </div>
+                        <div className="flex flex-col items-center gap-4">
+                          <a
+                            href="tel:+919289397569"
+                            className="flex items-center gap-2 text-[#3AB000] font-black text-lg hover:scale-105 transition-transform"
+                          >
+                            <div className="w-10 h-10 bg-green-50 rounded-full flex items-center justify-center shadow-sm">
+                              <Phone size={20} className="fill-[#3AB000] text-[#3AB000]" />
+                            </div>
+                            <span>+91 92893 97569</span>
+                          </a>
+                          <button
+                            onClick={() => setIsGuidanceModalOpen(true)}
+                            className="flex items-center gap-2 px-6 py-2 bg-blue-50 text-blue-700 rounded-xl font-black text-xs uppercase tracking-widest border border-blue-200 hover:bg-blue-100 transition-all shadow-sm animate-pulse"
+                          >
+                            <PlayCircle size={16} />
+                            Watch MOU Guidance Video
+                          </button>
                         </div>
-                        <a
-                          href="tel:+919289397569"
-                          className="flex items-center gap-2 text-[#3AB000] font-black text-lg hover:scale-105 transition-transform"
-                        >
-                          <div className="w-10 h-10 bg-green-50 rounded-full flex items-center justify-center shadow-sm">
-                            <Phone size={20} className="fill-[#3AB000] text-[#3AB000]" />
-                          </div>
-                          <span>+91 92893 97569</span>
-                        </a>
                       </div>
                     )}
                   </>

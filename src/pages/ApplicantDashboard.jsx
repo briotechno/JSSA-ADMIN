@@ -21,12 +21,14 @@ import {
   Award,
   CheckCircle2,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { dashboardAPI, applicationsAPI, jobPostingsAPI, notificationsAPI, createPaperAPI, noticesAPI } from "../utils/api";
 import ScrollerCarousel from "../components/Scroller/ScrollerCarousel";
 
 export default function ApplicantDashboard() {
+  const [isVideoLoading, setIsVideoLoading] = useState(true);
   const navigate = useNavigate();
   const { identifier } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -84,7 +86,7 @@ export default function ApplicantDashboard() {
           ]);
 
           let combined = [];
-          
+
           if (notifResponse.success && notifResponse.data) {
             const notifs = (notifResponse.data.notifications || notifResponse.data || []).map(n => ({
               ...n,
@@ -99,8 +101,8 @@ export default function ApplicantDashboard() {
             const notices = (noticesResponse.data.notices || noticesResponse.data || []).map(n => ({
               ...n,
               type: 'notice',
-              displayTitle: n.noticeEnglish && n.noticeHindi 
-                ? `${n.noticeEnglish} / ${n.noticeHindi}` 
+              displayTitle: n.noticeEnglish && n.noticeHindi
+                ? `${n.noticeEnglish} / ${n.noticeHindi}`
                 : (n.noticeEnglish || n.noticeHindi || n.importantNotice),
               displayLink: null // Notices usually don't have direct links in this model
             }));
@@ -259,7 +261,7 @@ export default function ApplicantDashboard() {
                 onClick={() => navigate("/my-exam")}
                 className="bg-white text-[#3AB000] px-5 py-2 rounded-lg text-xs font-extrabold hover:bg-green-50 transition-colors whitespace-nowrap shadow-sm"
               >
-                Go to My Exam →
+                Go to My Exam & MOU →
               </button>
             </div>
           )}
@@ -273,25 +275,25 @@ export default function ApplicantDashboard() {
             <div className="relative flex flex-wrap items-center justify-between gap-4">
               {/* Process Line Background (hidden on small screens if wrapped, but good for desktop) */}
               <div className="absolute top-8 left-0 w-full h-0.5 bg-gray-100 -z-0 hidden md:block"></div>
-              
+
               {applicationFlow.map((step, index) => {
                 const Icon = step.icon;
-                
+
                 // Detailed Completion logic
                 const isAppPaid = recentApplications.some(app => app.paymentStatus === 'paid');
                 const isExamAssigned = assignedTests.length > 0;
-                
+
                 const isExamPassed = assignedTests.some(t => {
-                   const score = t.userAttempt?.score || 0;
-                   const passing = t.passingMarks || 40;
-                   return t.userAttempt && score >= passing;
+                  const score = t.userAttempt?.score || 0;
+                  const passing = t.passingMarks || 40;
+                  return t.userAttempt && score >= passing;
                 });
 
                 const isMOUDone = assignedTests.some(t => t.userAttempt?.mouStatus === 'verified' || t.userAttempt?.mouStatus === 'submitted');
                 const isEmployed = assignedTests.some(t => t.userAttempt?.employmentStatus === 'Active');
 
                 let status = 'upcoming'; // upcoming, current, completed
-                
+
                 if (index === 0) {
                   if (isAppPaid) status = 'completed';
                   else status = 'current';
@@ -307,23 +309,29 @@ export default function ApplicantDashboard() {
                 }
 
                 const getBgColor = () => {
-                   if (status === 'completed') return 'bg-[#3AB000]';
-                   if (status === 'current') return step.color;
-                   return 'bg-gray-200';
+                  if (status === 'completed') return 'bg-[#3AB000]';
+                  if (status === 'current') return step.color;
+                  return 'bg-gray-200';
+                };
+
+                const handleStageClick = () => {
+                  if (index === 0) navigate("/application-form");
+                  if (index === 1 || index === 2) navigate("/my-exam");
                 };
 
                 return (
                   <div key={step.stage} className="relative flex flex-col items-center flex-1 min-w-[120px] z-10">
                     {/* The Connecting Line (for MD+ screens) */}
                     {index < applicationFlow.length - 1 && (
-                      <div 
+                      <div
                         className={`absolute top-8 left-1/2 w-full h-1 hidden md:block transition-colors duration-500  ${status === 'completed' ? 'bg-[#3AB000]' : 'bg-gray-100'}`}
                         style={{ transform: 'translateX(0%)', width: '100%' }}
                       />
                     )}
 
                     <div
-                      className={`${getBgColor()} w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center text-white shadow-lg mb-3 relative transition-all duration-700 border-4 border-white`}
+                      onClick={handleStageClick}
+                      className={`${getBgColor()} w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center text-white shadow-lg mb-3 relative transition-all duration-700 border-4 border-white cursor-pointer hover:scale-110 active:scale-95`}
                     >
                       <Icon className="w-7 h-7 sm:w-8 sm:h-8" />
                       {status === 'completed' && (
@@ -332,7 +340,7 @@ export default function ApplicantDashboard() {
                         </div>
                       )}
                     </div>
-                    
+
                     <div className="text-center px-1">
                       <h3 className={`font-black text-[13px] uppercase tracking-tight mb-1 ${status === 'upcoming' ? 'text-gray-300' : 'text-gray-900'}`}>
                         {step.stage}
@@ -346,6 +354,40 @@ export default function ApplicantDashboard() {
               })}
             </div>
           </div>
+
+          {/* YouTube Video Section for Paid Applicants (Moved & Resized) */}
+          {recentApplications.some(app => app.paymentStatus === "paid") && (
+            <div className="max-w-3xl mx-auto w-full">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="bg-[#3AB000] px-6 py-4 flex items-center gap-3">
+                  <Eye className="w-5 h-5 text-white animate-pulse" />
+                  <h3 className="text-white font-black text-base  capitalize ">
+                    MOU Form Fill Guidance Video
+                  </h3>
+                </div>
+                <div className="p-1 bg-black">
+                  <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-gray-900">
+                    {isVideoLoading && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 z-10">
+                        <Loader2 className="w-10 h-10 text-[#3AB000] animate-spin mb-3" />
+                        <p className="text-white font-bold text-xs uppercase tracking-widest animate-pulse">Loading Guidance Video...</p>
+                      </div>
+                    )}
+                    <iframe
+                      className="absolute inset-0 w-full h-full"
+                      src="https://drive.google.com/file/d/1nxQeJJaO0yLYOMlNKvZDyHbg2JWdjbQH/preview"
+                      title="MOU Form Fill Guidance Video"
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                      allowFullScreen
+                      onLoad={() => setIsVideoLoading(false)}
+                    ></iframe>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Main Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -382,9 +424,8 @@ export default function ApplicantDashboard() {
                         }}
                       >
                         <div className="flex items-start gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                            notif.type === 'notice' ? 'bg-[#3AB000]' : 'bg-blue-500'
-                          }`}>
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${notif.type === 'notice' ? 'bg-[#3AB000]' : 'bg-blue-500'
+                            }`}>
                             <Bell className="w-5 h-5 text-white" />
                           </div>
                           <div className="flex-1 min-w-0">

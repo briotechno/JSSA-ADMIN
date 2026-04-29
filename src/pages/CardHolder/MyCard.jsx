@@ -13,7 +13,11 @@ import {
   Loader2,
   AlertCircle,
   QrCode,
-  ArrowLeft
+  ArrowLeft,
+  UserCheck,
+  Calendar,
+  Contact,
+  Verified
 } from "lucide-react";
 import longLogo from "../../assets/jssa-logo-long.png";
 import watermarkLogo from "../../assets/JSSAogo.png";
@@ -99,8 +103,10 @@ const MyCard = ({ cardId = null }) => {
           </div>
         </div>
 
-        {/* The Card Container */}
-        <div className="flex flex-col items-center gap-12 py-12 bg-white rounded-none border-[1px] border-black/10 shadow-inner">
+        {/* The Card Container - Flex for Sidebar */}
+        <div className="flex flex-col xl:flex-row gap-8 items-start py-8">
+          
+          <div className="flex-1 flex flex-col items-center gap-12 py-12 bg-white rounded-none border-[1px] border-black/10 shadow-inner w-full">
 
           {/* Front of Card - Premium Green Theme */}
           <div className="relative w-full max-w-[480px] aspect-[1.586/1] bg-[#0A3D00] rounded-none shadow-[0_30px_60px_rgba(0,0,0,0.3)] overflow-hidden border-2 border-[#3AB000]/30 group">
@@ -228,6 +234,74 @@ const MyCard = ({ cardId = null }) => {
             <div className="absolute top-0 left-0 w-full h-1.5 bg-[#3AB000] opacity-50" />
           </div>
 
+          </div>
+
+          {/* Sidebar - Issuance Details */}
+          <div className="w-full xl:w-[320px] space-y-6">
+             <div className="bg-white border-2 border-[#3AB000] p-6 shadow-xl relative overflow-hidden">
+                {/* Decorative Pattern */}
+                <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#3AB000]/5 rounded-full blur-2xl" />
+                
+                <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest flex items-center gap-2 border-b border-gray-100 pb-4 mb-6">
+                   <UserCheck className="text-[#3AB000]" size={18} />
+                   Issuance Record
+                </h3>
+
+                <div className="space-y-6">
+                   <div className="flex items-start gap-4">
+                      <div className="p-2 bg-green-50 text-[#3AB000]">
+                         <Contact size={20} />
+                      </div>
+                      <div>
+                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Issued By</p>
+                         <p className="text-[13px] font-black text-gray-800 uppercase leading-tight">
+                            {card.issuedBy?.name || card.issuedBy?.email?.split('@')[0] || "Head Office Admin"}
+                         </p>
+                         <p className="text-[11px] font-bold text-[#3AB000] mt-0.5 uppercase tracking-tighter">Official {card.issuedBy?.role || "Administrator"}</p>
+                      </div>
+                   </div>
+
+                   <div className="flex items-start gap-4">
+                      <div className="p-2 bg-green-50 text-[#3AB000]">
+                         <Phone size={20} />
+                      </div>
+                      <div>
+                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Contact Support</p>
+                         <p className="text-[13px] font-black text-gray-800">{card.issuedBy?.phone || "0635541928"}</p>
+                         <p className="text-[11px] font-bold text-gray-400 mt-0.5 uppercase tracking-tighter">Support Line Available</p>
+                      </div>
+                   </div>
+
+                   <div className="flex items-start gap-4">
+                      <div className="p-2 bg-green-50 text-[#3AB000]">
+                         <Calendar size={20} />
+                      </div>
+                      <div>
+                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Issuance Date</p>
+                         <p className="text-[13px] font-black text-gray-800">{new Date(card.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                         <p className="text-[11px] font-bold text-gray-400 mt-0.5 uppercase tracking-tighter">System Generated Timestamp</p>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="mt-8 pt-6 border-t border-gray-100 flex items-center justify-between">
+                   <div className="flex items-center gap-2">
+                      <Verified className="text-[#3AB000]" size={16} />
+                      <span className="text-[10px] font-black text-gray-900 uppercase tracking-widest">Verified Document</span>
+                   </div>
+                   <div className="w-8 h-8 bg-gray-50 flex items-center justify-center">
+                      <QrCode size={16} className="text-gray-300" />
+                   </div>
+                </div>
+             </div>
+
+             <div className="bg-[#0A3D00] p-6 text-white border-b-4 border-[#3AB000] shadow-lg">
+                <h4 className="text-[11px] font-black uppercase tracking-[0.3em] mb-2 text-green-400">Security Notice</h4>
+                <p className="text-[12px] font-medium leading-relaxed opacity-80 italic">
+                   "This is an electronically generated document. No physical signature is required. Validity can be verified via the JSSA portal using the Membership ID."
+                </p>
+             </div>
+          </div>
         </div>
 
         {/* Support Section */}

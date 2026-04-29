@@ -53,6 +53,8 @@ const SectionHeader = ({ icon: Icon, title }) => (
 const EmployeeProfile = () => {
   const [loading, setLoading] = useState(true);
   const [app, setApp] = useState(null);
+  const [mouAddress, setMouAddress] = useState(null);
+  const [appAddress, setAppAddress] = useState(null);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -69,6 +71,15 @@ const EmployeeProfile = () => {
         // If manual employee profile exists, use it as base
         if (empRes.status === "fulfilled" && empRes.value?.success && empRes.value?.data) {
           const ep = empRes.value.data;
+          setMouAddress({
+            address: ep.villageTola,
+            wardNo: ep.wardNo,
+            panchayat: ep.gramPanchayat,
+            block: ep.blockKhand,
+            district: ep.district,
+            state: ep.state,
+            pincode: ep.pincode
+          });
           merged = {
             candidateName: ep.name,
             fatherName: ep.fatherName,
@@ -105,6 +116,15 @@ const EmployeeProfile = () => {
         if (examRes.status === "fulfilled" && examRes.value?.success && examRes.value?.data?.tests?.length > 0) {
           const examApp = examRes.value.data.tests[0].userAttempt?.applicationId;
           if (examApp) {
+            setAppAddress({
+              address: examApp.address,
+              wardNo: examApp.wardNo,
+              panchayat: examApp.panchayat,
+              block: examApp.block,
+              district: examApp.district,
+              state: examApp.state,
+              pincode: examApp.pincode
+            });
             merged = { ...merged, ...examApp };
           }
         }
@@ -245,25 +265,54 @@ const EmployeeProfile = () => {
 
             {/* Professional & Address */}
             <div className="bg-white p-6 border border-green-600">
-              <SectionHeader icon={MapPin} title="Full Address" />
+              <SectionHeader icon={MapPin} title="Geographical Details" />
               <div className="space-y-4 text-left">
-                <div className="p-4 bg-gray-50 border border-green-600">
-                  <p className="text-[9px] font-bold text-gray-600 uppercase mb-2">Detailed Location</p>
-                  <p className="text-sm font-bold text-gray-800 leading-relaxed">
-                    {app?.address}, Ward {app?.wardNo}, <br />
-                    {app?.panchayat}, {app?.block}, <br />
-                    {app?.district}, {app?.state} - {app?.pincode}
-                  </p>
+                {/* Application Address Block */}
+                {appAddress && (
+                  <div className="p-4 bg-blue-50/50 border border-blue-200">
+                    <p className="text-[9px] font-black text-blue-600 uppercase mb-2 tracking-widest flex items-center gap-1">
+                      <Globe size={10} />  Address
+                    </p>
+                    <p className="text-sm font-bold text-gray-800 leading-relaxed">
+                      {[
+                        appAddress.address,
+                        appAddress.wardNo ? `Ward ${appAddress.wardNo}` : null,
+                        appAddress.panchayat,
+                        appAddress.block,
+                        appAddress.district,
+                        appAddress.state ? `${appAddress.state}${appAddress.pincode ? ` - ${appAddress.pincode}` : ''}` : appAddress.pincode
+                      ].filter(Boolean).join(', ')}
+                    </p>
+                  </div>
+                )}
+
+                {/* MOU Address Block - Only show if data exists */}
+                {mouAddress && Object.values(mouAddress).some(v => v && v.toString().trim()) && (
+                  <div className="p-4 bg-green-50/50 border border-green-200">
+                    <p className="text-[9px] font-black text-green-600 uppercase mb-2 tracking-widest flex items-center gap-1">
+                      <ShieldCheck size={10} /> MOU / Profile Address
+                    </p>
+                    <p className="text-sm font-bold text-gray-800 leading-relaxed">
+                      {[
+                        mouAddress.address,
+                        mouAddress.wardNo ? `Ward ${mouAddress.wardNo}` : null,
+                        mouAddress.panchayat,
+                        mouAddress.block,
+                        mouAddress.district,
+                        mouAddress.state ? `${mouAddress.state}${mouAddress.pincode ? ` - ${mouAddress.pincode}` : ''}` : mouAddress.pincode
+                      ].filter(Boolean).join(', ')}
+                    </p>
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-red-50 border border-red-600 text-center">
+                  <p className="text-[8px] font-black text-red-600 uppercase mb-1">PAN NO.</p>
+                  <p className="text-xs font-black text-red-700">{app?.panNumber || app?.pan || "N/A"}</p>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 bg-red-50 border border-red-600 text-center">
-                    <p className="text-[8px] font-black text-red-600 uppercase mb-1">PAN NO.</p>
-                    <p className="text-xs font-black text-red-700">{app?.panNumber || app?.pan || "N/A"}</p>
-                  </div>
-                  <div className="p-3 bg-blue-50 border border-blue-600 text-center">
-                    <p className="text-[8px] font-black text-blue-600 uppercase mb-1">ADHAR VERIFIED</p>
-                    <p className="text-xs font-black text-blue-700">SUCCESS</p>
-                  </div>
+                <div className="p-3 bg-blue-50 border border-blue-600 text-center">
+                  <p className="text-[8px] font-black text-blue-600 uppercase mb-1">ADHAR VERIFIED</p>
+                  <p className="text-xs font-black text-blue-700">SUCCESS</p>
                 </div>
               </div>
             </div>

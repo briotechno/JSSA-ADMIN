@@ -132,7 +132,7 @@ const Sidebar = () => {
 
     if (role === "applicant") {
       base.splice(3, 0,
-        { name: "My Exam", icon: Bell, path: "/my-exam" },
+        { name: "My Exam & MOU", icon: Bell, path: "/my-exam" },
         { name: "Transactions", icon: CreditCard, path: "/transactions" }
       );
     }
@@ -144,6 +144,7 @@ const Sidebar = () => {
         { name: "Notifications", icon: Bell, path: "/notifications-manage" },
         { name: "Notice", icon: Bell, path: "/notice" },
         { name: "Transactions", icon: CreditCard, path: "/admin/transactions" },
+        { name: "Claim Requests", icon: Shield, path: "/admin/claims" },
         { name: "Payment Settings", icon: CreditCard, path: "/settings" },
         {
           name: "Exam Management",
@@ -164,6 +165,7 @@ const Sidebar = () => {
             { name: "MOU", icon: ScrollText, path: "/admin/mou" },
             { name: "Fee Structure", icon: CreditCard, path: "/admin/fee-structure" },
             { name: "Add Employee", icon: UserPlus, path: "/admin/employees" },
+            { name: "Employee Announcement", icon: Bell, path: "/admin/employee-announcements" },
           ],
         },
         {
@@ -195,6 +197,7 @@ const Sidebar = () => {
     if (role === "cardHolder") {
       return [
         { name: "My Identity Card", icon: CreditCard, path: "/my-card" },
+        { name: "Service Claims", icon: Shield, path: "/claims" },
         { name: "Logout", icon: LogOut, path: "/logout" },
       ];
     }

@@ -23,12 +23,15 @@ import TransactionHistory from "./pages/TransactionHistory/TransactionHistory.js
 import MOU from "./pages/EmployeeManagement/MOU";
 import FeeStructure from "./pages/EmployeeManagement/FeeStructure";
 import ManualEmployeeList from "./pages/EmployeeManagement/ManualEmployeeList";
+import EmployeeAnnouncement from "./pages/EmployeeManagement/EmployeeAnnouncement";
 import EmployeePlaceholder from "./pages/EmployeeDashboard/EmployeePlaceholder";
 import EmployeeOnboarding from "./pages/EmployeeDashboard/EmployeeOnboarding";
 import EmployeeLetters from "./pages/EmployeeDashboard/EmployeeLetters";
 import EmployeeProfile from "./pages/EmployeeDashboard/EmployeeProfile";
 import CardManagement from "./pages/EmployeeDashboard/CardManagement";
 import AddCard from "./pages/EmployeeDashboard/AddCard";
+import WorkingZone from "./pages/EmployeeDashboard/WorkingZone";
+import MyTeam from "./pages/EmployeeDashboard/MyTeam";
 import MyCard from "./pages/CardHolder/MyCard";
 
 import Login from "./pages/Login";
@@ -48,6 +51,8 @@ import LocationManagement from "./pages/Admin/LocationManagement.jsx";
 import WhatsAppTest from "./pages/Admin/WhatsAppTest.jsx";
 import AdminTransactions from "./pages/Admin/AdminTransactions.jsx";
 import AdminManagement from "./pages/Admin/AdminManagement.jsx";
+import Claims from "./pages/CardHolder/Claims.jsx";
+import ClaimManagement from "./pages/Admin/ClaimManagement.jsx";
 import AdminLogin from "./pages/AdminLogin";
 import Logout from "./pages/Logout";
 
@@ -128,6 +133,7 @@ function App() {
               />
               <Route path="/mou/process/:id" element={<MOUForm />} />
               <Route path="/my-card" element={<MyCard />} />
+              <Route path="/claims" element={<Claims />} />
               <Route
                 path="/transactions"
                 element={
@@ -246,6 +252,14 @@ function App() {
                 }
               />
               <Route
+                path="/admin/employee-announcements"
+                element={
+                  <RequireRole allow={["admin"]}>
+                    <EmployeeAnnouncement />
+                  </RequireRole>
+                }
+              />
+              <Route
                 path="/admin/whatsapp-test"
                 element={
                   <RequireRole allow={["admin"]}>
@@ -266,6 +280,14 @@ function App() {
                 element={
                   <RequireRole allow={["admin"]}>
                     <AdminManagement />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/admin/claims"
+                element={
+                  <RequireRole allow={["admin"]}>
+                    <ClaimManagement />
                   </RequireRole>
                 }
               />
@@ -316,9 +338,9 @@ function App() {
                   <Route path="/employee/cards/add" element={<AddCard />} />
                   <Route path="/employee/cards/view/:id" element={<MyCardViewWrapper />} />
                   <Route path="/employee/leads" element={<EmployeePlaceholder title="Leads" />} />
-                  <Route path="/employee/my-team" element={<EmployeePlaceholder title="My Team" />} />
+                  <Route path="/employee/my-team" element={<MyTeam />} />
                   <Route path="/employee/letters" element={<EmployeeLetters />} />
-                  <Route path="/employee/working-zone" element={<EmployeePlaceholder title="Working Zone" />} />
+                  <Route path="/employee/working-zone" element={<WorkingZone />} />
                   <Route path="/employee/reviews" element={<EmployeePlaceholder title="Review & Ratings" />} />
                   <Route path="/employee/meetings" element={<EmployeePlaceholder title="Meetings" />} />
                   <Route path="/employee/announcements" element={<EmployeePlaceholder title="Announcements" />} />

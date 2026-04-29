@@ -13,7 +13,8 @@ import {
   Eye,
   EyeOff,
   AlertCircle,
-  UserCheck
+  UserCheck,
+  Edit
 } from "lucide-react";
 import { useAuth } from "../../auth/AuthProvider";
 
@@ -38,6 +39,8 @@ const AdminManagement = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingId, setEditingId] = useState(null);
 
   const fetchAdmins = async () => {
     setIsLoading(true);
@@ -87,7 +90,9 @@ const AdminManagement = () => {
       alert("Please provide at least a Phone number or Email.");
       return;
     }
-    if (formData.password.length < 6) {
+    
+    // Only require password for NEW admins
+    if (!isEditing && formData.password.length < 6) {
       alert("Password must be at least 6 characters.");
       return;
     }
@@ -100,7 +105,6 @@ const AdminManagement = () => {
         return;
       }
 
-      // Convert comma-separated string to array
       const processedData = {
         ...formData,
         allowedIPs: formData.allowedIPs
@@ -108,20 +112,73 @@ const AdminManagement = () => {
           : []
       };
 
-      const res = await adminAPI.createAdmin(processedData);
+      let res;
+      if (isEditing) {
+        // Remove password if empty to prevent overwriting with blank
+        if (!processedData.password) delete processedData.password;
+        res = await adminAPI.updateAdmin(editingId, processedData);
+      } else {
+        res = await adminAPI.createAdmin(processedData);
+      }
+
       if (res.success) {
-        alert("New Admin added successfully!");
-        setIsModalOpen(false);
-        setFormData({ phone: "", email: "", password: "", role: "admin", allowedIPs: "" });
+        alert(isEditing ? "Admin updated successfully!" : "New Admin added successfully!");
+        closeModal();
         fetchAdmins();
       } else {
-        alert(res.message || res.error || "Failed to add admin");
+        alert(res.message || res.error || "Operation failed");
       }
     } catch (err) {
-      alert("Error adding admin");
+      alert("Error processing request");
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleLogoutAllAdmins = async () => {
+    if (window.confirm("CRITICAL ACTION: Are you sure you want to LOGOUT ALL admins immediately? All active sessions will be terminated and everyone will need to login again.")) {
+      setIsSubmitting(true);
+      try {
+        const res = await authAPI.logoutAllAdmins();
+        if (res.success) {
+          alert(res.message);
+          // Optional: You might want to logout the current admin too if they click this,
+          // but the next API call will catch it anyway.
+        } else {
+          alert(res.error || "Failed to logout admins");
+        }
+      } catch (err) {
+        alert("Error processing request");
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
+  };
+
+  const openModal = (admin = null) => {
+    if (admin) {
+      setIsEditing(true);
+      setEditingId(admin._id);
+      setFormData({
+        phone: admin.phone || "",
+        email: admin.email || "",
+        password: "", // Don't show existing password
+        role: "admin",
+        allowedIPs: admin.allowedIPs ? admin.allowedIPs.join(', ') : ""
+      });
+    } else {
+      setIsEditing(false);
+      setEditingId(null);
+      setFormData({ phone: "", email: "", password: "", role: "admin", allowedIPs: "" });
+    }
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setIsEditing(false);
+    setEditingId(null);
+    setFormData({ phone: "", email: "", password: "", role: "admin", allowedIPs: "" });
   };
 
   const filteredAdmins = admins.filter(admin => 
@@ -162,12 +219,21 @@ const AdminManagement = () => {
             </div>
           </div>
 
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="bg-black hover:bg-[#3AB000] text-white text-xs sm:text-sm font-medium px-4 sm:px-6 py-2.5 rounded-sm transition-colors whitespace-nowrap w-full sm:w-auto"
-          >
-            + Add New Admin
-          </button>
+          <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+            <button 
+              onClick={handleLogoutAllAdmins}
+              disabled={isSubmitting}
+              className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-bold px-4 sm:px-6 py-2.5 rounded-sm transition-colors whitespace-nowrap w-full sm:w-auto flex items-center justify-center gap-2"
+            >
+              <Lock size={14} /> Logout All Admins
+            </button>
+            <button 
+              onClick={() => openModal()}
+              className="bg-black hover:bg-[#3AB000] text-white text-xs sm:text-sm font-medium px-4 sm:px-6 py-2.5 rounded-sm transition-colors whitespace-nowrap w-full sm:w-auto"
+            >
+              + Add New Admin
+            </button>
+          </div>
         </div>
 
         {/* ── Desktop Table (JobPosting Style) ── */}
@@ -234,6 +300,13 @@ const AdminManagement = () => {
                       </td>
                       <td className="px-4 py-4 text-center">
                         <div className="flex items-center justify-center gap-3">
+                          <button 
+                            onClick={() => openModal(admin)}
+                            className="text-[#3AB000] hover:text-blue-600 transition-colors"
+                            title="Edit Admin"
+                          >
+                            <Edit size={16} />
+                          </button>
                           {admin._id !== "000000000000000000000001" ? (
                             <button 
                               onClick={() => handleDelete(admin._id)}
@@ -276,16 +349,24 @@ const AdminManagement = () => {
                     <div className="text-[10px] text-gray-500 mb-1">S.N: {indexOfFirst + idx + 1}</div>
                     <div className="text-sm font-bold text-[#2d8a00]">{admin.phone || "---"}</div>
                   </div>
-                  {admin._id === "000000000000000000000001" ? (
-                    <span className="text-[9px] font-bold text-white bg-black px-1.5 py-0.5 rounded uppercase">System</span>
-                  ) : (
+                  <div className="flex items-center gap-2">
                     <button 
-                      onClick={() => handleDelete(admin._id)}
-                      className="text-red-500 p-1"
+                      onClick={() => openModal(admin)}
+                      className="text-blue-600 p-1"
                     >
-                      <Trash2 size={14} />
+                      <Edit size={14} />
                     </button>
-                  )}
+                    {admin._id === "000000000000000000000001" ? (
+                      <span className="text-[9px] font-bold text-white bg-black px-1.5 py-0.5 rounded uppercase">System</span>
+                    ) : (
+                      <button 
+                        onClick={() => handleDelete(admin._id)}
+                        className="text-red-500 p-1"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="text-xs text-gray-600 mb-1">{admin.email || "No Email"}</div>
                 <div className="text-[10px] text-gray-400">Created: {new Date(admin.createdAt).toLocaleDateString()}</div>
@@ -327,10 +408,11 @@ const AdminManagement = () => {
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 bg-[#3AB000] rounded-t-lg">
               <h2 className="text-white font-bold text-base flex items-center gap-2">
-                <Plus size={18} /> Add Admin Access
+                {isEditing ? <Edit size={18} /> : <Plus size={18} />} 
+                {isEditing ? "Edit Admin Access" : "Add Admin Access"}
               </h2>
               <button
-                onClick={() => setIsModalOpen(false)}
+                onClick={closeModal}
                 className="w-7 h-7 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors"
               >
                 <X className="w-4 h-4 text-white" />
@@ -373,13 +455,13 @@ const AdminManagement = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wider">
-                  Password <span className="text-red-500">*</span>
+                  Password {!isEditing && <span className="text-red-500">*</span>}
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                   <input 
                     type={showPassword ? "text" : "password"}
-                    placeholder="Min 6 characters"
+                    placeholder={isEditing ? "Leave blank to keep current" : "Min 6 characters"}
                     className="w-full pl-10 pr-12 py-2 text-sm border border-gray-300 rounded outline-none focus:border-[#3AB000] transition-colors bg-white text-gray-700"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}

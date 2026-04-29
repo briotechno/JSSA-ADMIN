@@ -21,10 +21,16 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  // Check for role mismatch (e.g., upgraded on another system)
+   // Check for role mismatch (e.g., upgraded on another system)
   useEffect(() => {
+    let lastChecked = 0;
     const checkRoleSync = async () => {
       if (!session || !session.token || session.role !== "applicant") return;
+      
+      // Throttle sync checks to once per minute to avoid loops
+      const now = Date.now();
+      if (now - lastChecked < 60000) return;
+      lastChecked = now;
 
       try {
         const res = await api.auth.getMe();
@@ -36,10 +42,25 @@ export function AuthProvider({ children }) {
       }
     };
 
-    // Check once on mount and every time window gains focus
+    // Check on mount and window focus
     checkRoleSync();
     window.addEventListener("focus", checkRoleSync);
-    return () => window.removeEventListener("focus", checkRoleSync);
+    
+    // Active session polling (Increased to 30s to reduce noise)
+    const pollInterval = setInterval(async () => {
+      if (session && session.token) {
+        try {
+          await api.auth.getMe();
+        } catch (err) {
+          // Handled by interceptor
+        }
+      }
+    }, 30000); 
+
+    return () => {
+      window.removeEventListener("focus", checkRoleSync);
+      clearInterval(pollInterval);
+    };
   }, [session]);
 
   const value = useMemo(() => {
